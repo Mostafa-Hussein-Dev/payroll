@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Company {
+  id           String       @id @default(cuid())
+  name         String
+  currency     String       @default("USD")
+  // NSSF (الضمان) employee contribution.
+  // nssfMode = "percent" -> nssfValue is a % of base salary (e.g. 3 = 3%)
+  // nssfMode = "amount"  -> nssfValue is a fixed money amount
+  nssfMode     String       @default("percent")
+  nssfValue    Decimal      @default(0) @db.Decimal(14, 2)
+  address      String?
+  createdAt    DateTime     @default(now())
+  employees    Employee[]
+  payrollRuns  PayrollRun[]
+}
+
+model Employee {
+  id                 String    @id @default(cuid())
+  companyId          String
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // "رقم المساعد" — employee/accounting number
+  employeeNo         String?
+  name               String
+  // "الراتب" base salary
+  baseSalary         Decimal   @default(0) @db.Decimal(14, 2)
+  // "بدل نقل" transport allowance
+  transportAllowance Decimal   @default(0) @db.Decimal(14, 2)
+  // "تعويض العائلي" family allowance
+  familyAllowance    Decimal   @default(0) @db.Decimal(14, 2)
+  // whether NSSF (الضمان) is deducted for this employee
+  nssfSubscribed     Boolean   @default(true)
+  // outstanding loan balance carried across months ("رصيد القرض")
+  loanBalance        Decimal   @default(0) @db.Decimal(14, 2)
+  startDate          DateTime?
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  payslips           Payslip[]
+
+  @@index([companyId])
+}
+
+model PayrollRun {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  month     Int // 1-12
+  year      Int
+  status    String    @default("draft") // draft | finalized
+  createdAt DateTime  @default(now())
+  payslips  Payslip[]
+
+  @@unique([companyId, month, year])
+  @@index([companyId])
+}
+
+model Payslip {
+  id         String     @id @default(cuid())
+  runId      String
+  run        PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // --- Earnings ---
+  baseSalary         Decimal @default(0) @db.Decimal(14, 2)
+  transportAllowance Decimal @default(0) @db.Decimal(14, 2)
+  familyAllowance    Decimal @default(0) @db.Decimal(14, 2)
+  overtime           Decimal @default(0) @db.Decimal(14, 2) // ساعات عمل اضافي
+  salaryAdjAddition  Decimal @default(0) @db.Decimal(14, 2) // تقديمات تعديل راتب
+  otherAdditions     Decimal @default(0) @db.Decimal(14, 2) // تقديمات اخرى
+
+  // --- Deductions ---
+  nssfDeduction      Decimal @default(0) @db.Decimal(14, 2) // اشتراك الضمان
+  nssfDifference     Decimal @default(0) @db.Decimal(14, 2) // فرق ضمان
+  absenceDeduction   Decimal @default(0) @db.Decimal(14, 2) // حسومات غياب
+  salaryAdjDeduction Decimal @default(0) @db.Decimal(14, 2) // حسومات تعديل راتب
+  purchases          Decimal @default(0) @db.Decimal(14, 2) // مشتريات
+  advance            Decimal @default(0) @db.Decimal(14, 2) // سلفة
+  loanPayment        Decimal @default(0) @db.Decimal(14, 2) // دفعة من القرض
+
+  // snapshots of loan balance for this run
+  loanBalanceBefore  Decimal @default(0) @db.Decimal(14, 2)
+
+  // computed and stored at save time (المستحق للدفع)
+  netPay             Decimal @default(0) @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+
+  @@unique([runId, employeeId])
+  @@index([runId])
+  @@index([employeeId])
+}

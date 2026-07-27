@@ -1,0 +1,308 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { prisma } from "./prisma";
+import { requireUser } from "./auth";
+import {
+  PayslipAmounts,
+  netPay,
+  round2,
+  computeNssf,
+  EARNING_FIELDS,
+  DEDUCTION_FIELDS,
+} from "./payroll";
+
+function n(form: FormData, key: string): number {
+  const v = form.get(key);
+  const parsed = typeof v === "string" ? parseFloat(v) : NaN;
+  return Number.isFinite(parsed) ? round2(parsed) : 0;
+}
+
+function s(form: FormData, key: string): string {
+  const v = form.get(key);
+  return typeof v === "string" ? v.trim() : "";
+}
+
+// ---------- Companies ----------
+
+export async function createCompany(form: FormData) {
+  await requireUser();
+  const name = s(form, "name");
+  if (!name) throw new Error("Company name is required");
+  const company = await prisma.company.create({
+    data: {
+      name,
+      currency: s(form, "currency") || "USD",
+      nssfMode: s(form, "nssfMode") === "amount" ? "amount" : "percent",
+      nssfValue: n(form, "nssfValue").toString(),
+      address: s(form, "address") || null,
+    },
+  });
+  revalidatePath("/");
+  redirect(`/companies/${company.id}`);
+}
+
+export async function updateCompany(companyId: string, form: FormData) {
+  await requireUser();
+  await prisma.company.update({
+    where: { id: companyId },
+    data: {
+      name: s(form, "name"),
+      currency: s(form, "currency") || "USD",
+      nssfMode: s(form, "nssfMode") === "amount" ? "amount" : "percent",
+      nssfValue: n(form, "nssfValue").toString(),
+      address: s(form, "address") || null,
+    },
+  });
+  revalidatePath(`/companies/${companyId}`);
+  redirect(`/companies/${companyId}`);
+}
+
+export async function deleteCompany(companyId: string) {
+  await requireUser();
+  await prisma.company.delete({ where: { id: companyId } });
+  revalidatePath("/");
+  redirect("/");
+}
+
+// ---------- Employees ----------
+
+export async function createEmployee(companyId: string, form: FormData) {
+  await requireUser();
+  const name = s(form, "name");
+  if (!name) throw new Error("Employee name is required");
+  await prisma.employee.create({
+    data: {
+      companyId,
+      name,
+      employeeNo: s(form, "employeeNo") || null,
+      baseSalary: n(form, "baseSalary").toString(),
+      transportAllowance: n(form, "transportAllowance").toString(),
+      familyAllowance: n(form, "familyAllowance").toString(),
+      nssfSubscribed: form.get("nssfSubscribed") === "on",
+      loanBalance: n(form, "loanBalance").toString(),
+      startDate: s(form, "startDate") ? new Date(s(form, "startDate")) : null,
+    },
+  });
+  revalidatePath(`/companies/${companyId}`);
+  redirect(`/companies/${companyId}`);
+}
+
+export async function updateEmployee(
+  companyId: string,
+  employeeId: string,
+  form: FormData
+) {
+  await requireUser();
+  await prisma.employee.update({
+    where: { id: employeeId },
+    data: {
+      name: s(form, "name"),
+      employeeNo: s(form, "employeeNo") || null,
+      baseSalary: n(form, "baseSalary").toString(),
+      transportAllowance: n(form, "transportAllowance").toString(),
+      familyAllowance: n(form, "familyAllowance").toString(),
+      nssfSubscribed: form.get("nssfSubscribed") === "on",
+      loanBalance: n(form, "loanBalance").toString(),
+      startDate: s(form, "startDate") ? new Date(s(form, "startDate")) : null,
+      active: form.get("active") === "on",
+    },
+  });
+  revalidatePath(`/companies/${companyId}`);
+  redirect(`/companies/${companyId}`);
+}
+
+export async function deleteEmployee(companyId: string, employeeId: string) {
+  await requireUser();
+  await prisma.employee.delete({ where: { id: employeeId } });
+  revalidatePath(`/companies/${companyId}`);
+  redirect(`/companies/${companyId}`);
+}
+
+// ---------- Payroll runs ----------
+
+export async function createRun(companyId: string, form: FormData) {
+  await requireUser();
+  const month = parseInt(s(form, "month"), 10);
+  const year = parseInt(s(form, "year"), 10);
+  if (!month || !year) throw new Error("Month and year are required");
+
+  const company = await prisma.company.findUniqueOrThrow({
+    where: { id: companyId },
+  });
+  const nssfMode = company.nssfMode;
+  const nssfValue = Number(company.nssfValue);
+
+  const existing = await prisma.payrollRun.findUnique({
+    where: { companyId_month_year: { companyId, month, year } },
+  });
+  if (existing) redirect(`/companies/${companyId}/runs/${existing.id}`);
+
+  const employees = await prisma.employee.findMany({
+    where: { companyId, active: true },
+    orderBy: { name: "asc" },
+  });
+
+  const run = await prisma.payrollRun.create({
+    data: {
+      companyId,
+      month,
+      year,
+      payslips: {
+        create: employees.map((e) => {
+          const base = Number(e.baseSalary);
+          const amounts: PayslipAmounts = {
+            baseSalary: base,
+            transportAllowance: Number(e.transportAllowance),
+            familyAllowance: Number(e.familyAllowance),
+            overtime: 0,
+            salaryAdjAddition: 0,
+            otherAdditions: 0,
+            nssfDeduction: e.nssfSubscribed
+              ? computeNssf(base, nssfMode, nssfValue)
+              : 0,
+            nssfDifference: 0,
+            absenceDeduction: 0,
+            salaryAdjDeduction: 0,
+            purchases: 0,
+            advance: 0,
+            loanPayment: 0,
+          };
+          return {
+            employeeId: e.id,
+            ...toStrings(amounts),
+            loanBalanceBefore: e.loanBalance.toString(),
+            netPay: netPay(amounts).toString(),
+          };
+        }),
+      },
+    },
+  });
+
+  revalidatePath(`/companies/${companyId}`);
+  redirect(`/companies/${companyId}/runs/${run.id}`);
+}
+
+export async function savePayslip(
+  companyId: string,
+  runId: string,
+  payslipId: string,
+  form: FormData
+) {
+  await requireUser();
+  const amounts: PayslipAmounts = {
+    baseSalary: n(form, "baseSalary"),
+    transportAllowance: n(form, "transportAllowance"),
+    familyAllowance: n(form, "familyAllowance"),
+    overtime: n(form, "overtime"),
+    salaryAdjAddition: n(form, "salaryAdjAddition"),
+    otherAdditions: n(form, "otherAdditions"),
+    nssfDeduction: n(form, "nssfDeduction"),
+    nssfDifference: n(form, "nssfDifference"),
+    absenceDeduction: n(form, "absenceDeduction"),
+    salaryAdjDeduction: n(form, "salaryAdjDeduction"),
+    purchases: n(form, "purchases"),
+    advance: n(form, "advance"),
+    loanPayment: n(form, "loanPayment"),
+  };
+  await prisma.payslip.update({
+    where: { id: payslipId },
+    data: {
+      ...toStrings(amounts),
+      loanBalanceBefore: n(form, "loanBalanceBefore").toString(),
+      netPay: netPay(amounts).toString(),
+    },
+  });
+  revalidatePath(`/companies/${companyId}/runs/${runId}`);
+}
+
+/**
+ * Save the whole run as a draft: persist every payslip's edited amounts in one
+ * transaction. Leaves the run status as "draft" (nothing is locked, no loan
+ * balances are touched). Inputs are namespaced per payslip: `${id}__field`.
+ */
+export type SaveDraftState = { ok: boolean; ts: number; count: number } | null;
+
+export async function saveRunDraft(
+  companyId: string,
+  runId: string,
+  _prev: SaveDraftState,
+  form: FormData
+): Promise<SaveDraftState> {
+  await requireUser();
+  const ids = String(form.get("payslipIds") || "")
+    .split(",")
+    .filter(Boolean);
+  const fields = [...EARNING_FIELDS, ...DEDUCTION_FIELDS];
+
+  await prisma.$transaction(
+    ids.map((id) => {
+      const amounts = {} as PayslipAmounts;
+      for (const f of fields) amounts[f] = n(form, `${id}__${f}`);
+      return prisma.payslip.update({
+        where: { id },
+        data: {
+          ...toStrings(amounts),
+          loanBalanceBefore: n(form, `${id}__loanBalanceBefore`).toString(),
+          netPay: netPay(amounts).toString(),
+        },
+      });
+    })
+  );
+
+  revalidatePath(`/companies/${companyId}/runs/${runId}`);
+  return { ok: true, ts: Date.now(), count: ids.length };
+}
+
+/**
+ * Finalize a run: lock it and apply loan payments to each employee's
+ * outstanding loan balance.
+ */
+export async function finalizeRun(companyId: string, runId: string) {
+  await requireUser();
+  const run = await prisma.payrollRun.findUniqueOrThrow({
+    where: { id: runId },
+    include: { payslips: true },
+  });
+  if (run.status === "finalized") {
+    redirect(`/companies/${companyId}/runs/${runId}`);
+  }
+
+  await prisma.$transaction([
+    ...run.payslips
+      .filter((p) => Number(p.loanPayment) !== 0)
+      .map((p) =>
+        prisma.employee.update({
+          where: { id: p.employeeId },
+          data: {
+            loanBalance: {
+              decrement: p.loanPayment,
+            },
+          },
+        })
+      ),
+    prisma.payrollRun.update({
+      where: { id: runId },
+      data: { status: "finalized" },
+    }),
+  ]);
+
+  revalidatePath(`/companies/${companyId}/runs/${runId}`);
+  redirect(`/companies/${companyId}/runs/${runId}`);
+}
+
+export async function deleteRun(companyId: string, runId: string) {
+  await requireUser();
+  await prisma.payrollRun.delete({ where: { id: runId } });
+  revalidatePath(`/companies/${companyId}`);
+  redirect(`/companies/${companyId}`);
+}
+
+function toStrings(a: PayslipAmounts): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const f of [...EARNING_FIELDS, ...DEDUCTION_FIELDS]) {
+    out[f] = (a[f] || 0).toString();
+  }
+  return out;
+}

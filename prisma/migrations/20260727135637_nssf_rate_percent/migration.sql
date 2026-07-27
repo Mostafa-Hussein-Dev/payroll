@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Company" ALTER COLUMN "nssfRate" SET DATA TYPE DECIMAL(7,4);
