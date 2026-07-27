@@ -120,6 +120,53 @@ export async function deleteEmployee(companyId: string, employeeId: string) {
   redirect(`/companies/${companyId}`);
 }
 
+// ---------- Absences (attendance log) ----------
+
+export async function addAbsence(
+  companyId: string,
+  employeeId: string,
+  form: FormData
+) {
+  await requireUser();
+  const dateStr = s(form, "date");
+  if (!dateStr) throw new Error("Date is required");
+  try {
+    await prisma.absence.create({
+      data: {
+        employeeId,
+        date: new Date(dateStr),
+        kind: s(form, "kind") === "half" ? "half" : "full",
+        reason: s(form, "reason") || null,
+        paid: form.get("paid") === "on",
+      },
+    });
+  } catch (e: unknown) {
+    // Unique constraint on (employeeId, date) — one entry per day
+    if (
+      e &&
+      typeof e === "object" &&
+      "code" in e &&
+      (e as { code?: string }).code === "P2002"
+    ) {
+      throw new Error("An absence is already recorded for that date.");
+    }
+    throw e;
+  }
+  revalidatePath(`/companies/${companyId}/employees/${employeeId}`);
+  redirect(`/companies/${companyId}/employees/${employeeId}`);
+}
+
+export async function deleteAbsence(
+  companyId: string,
+  employeeId: string,
+  absenceId: string
+) {
+  await requireUser();
+  await prisma.absence.delete({ where: { id: absenceId } });
+  revalidatePath(`/companies/${companyId}/employees/${employeeId}`);
+  redirect(`/companies/${companyId}/employees/${employeeId}`);
+}
+
 // ---------- Payroll runs ----------
 
 export async function createRun(companyId: string, form: FormData) {

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { saveRunDraft, finalizeRun, deleteRun } from "@/lib/actions";
 import { money } from "@/lib/format";
-import { monthLabel } from "@/lib/payroll";
+import { monthLabel, absenceDays } from "@/lib/payroll";
 import { ConfirmButton } from "@/app/(app)/components/confirm-button";
 import { PayslipEditor } from "./payslip-editor";
 import { RunForm } from "./run-form";
@@ -25,6 +25,28 @@ export default async function RunPage({
     },
   });
   if (!run) notFound();
+
+  // Absences recorded within this run's month, per employee.
+  const monthStart = new Date(Date.UTC(run.year, run.month - 1, 1));
+  const monthEnd = new Date(Date.UTC(run.year, run.month, 1));
+  const absences = await prisma.absence.findMany({
+    where: {
+      employeeId: { in: run.payslips.map((p) => p.employeeId) },
+      date: { gte: monthStart, lt: monthEnd },
+    },
+    select: { employeeId: true, kind: true, paid: true },
+  });
+  const absenceByEmployee = new Map<
+    string,
+    { days: number; unpaidDays: number }
+  >();
+  for (const p of run.payslips) {
+    const list = absences.filter((a) => a.employeeId === p.employeeId);
+    absenceByEmployee.set(p.employeeId, {
+      days: absenceDays(list),
+      unpaidDays: absenceDays(list.filter((a) => !a.paid)),
+    });
+  }
 
   const cur = run.company.currency;
   const locked = run.status === "finalized";
@@ -102,6 +124,12 @@ export default async function RunPage({
               key={p.id}
               currency={cur}
               locked={locked}
+              absence={
+                absenceByEmployee.get(p.employeeId) ?? {
+                  days: 0,
+                  unpaidDays: 0,
+                }
+              }
               payslip={{
                 id: p.id,
                 employeeName: p.employee.name,

@@ -67,6 +67,11 @@ export function computeNssf(
   return round2((baseSalary * value) / 100);
 }
 
+/** Total absence days for a list of absences (half-day counts as 0.5). */
+export function absenceDays(list: { kind: string }[]): number {
+  return list.reduce((s, a) => s + (a.kind === "half" ? 0.5 : 1), 0);
+}
+
 export const MONTHS = [
   "January",
   "February",

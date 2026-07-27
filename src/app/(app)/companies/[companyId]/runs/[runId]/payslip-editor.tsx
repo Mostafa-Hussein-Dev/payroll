@@ -46,10 +46,12 @@ const DEDUCTIONS: { key: keyof PayslipData; label: string }[] = [
 export function PayslipEditor({
   currency,
   locked,
+  absence,
   payslip,
 }: {
   currency: string;
   locked: boolean;
+  absence: { days: number; unpaidDays: number };
   payslip: PayslipData;
 }) {
   const initial = useMemo(() => {
@@ -76,9 +78,20 @@ export function PayslipEditor({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-lg font-semibold">{payslip.employeeName}</h3>
-          {payslip.employeeNo && (
-            <p className="text-xs text-slate-400">No. {payslip.employeeNo}</p>
-          )}
+          <p className="text-xs text-slate-400">
+            {payslip.employeeNo ? `No. ${payslip.employeeNo} · ` : ""}
+            {absence.days > 0 ? (
+              <span className="text-amber-600">
+                {absence.days} absent day{absence.days === 1 ? "" : "s"} this
+                month
+                {absence.unpaidDays > 0
+                  ? ` (${absence.unpaidDays} unpaid)`
+                  : ""}
+              </span>
+            ) : (
+              "no absences this month"
+            )}
+          </p>
         </div>
         <div className="text-right">
           <div className="text-xs text-slate-500">Net due (المستحق للدفع)</div>

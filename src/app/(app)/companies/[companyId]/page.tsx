@@ -14,7 +14,10 @@ export default async function CompanyPage({
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     include: {
-      employees: { orderBy: { name: "asc" } },
+      employees: {
+        orderBy: { name: "asc" },
+        include: { _count: { select: { absences: true } } },
+      },
       payrollRuns: { orderBy: [{ year: "desc" }, { month: "desc" }] },
     },
   });
@@ -74,6 +77,7 @@ export default async function CompanyPage({
                   <th className="px-4 py-3 font-medium">Name</th>
                   <th className="px-4 py-3 text-right font-medium">Base salary</th>
                   <th className="px-4 py-3 text-right font-medium">Loan balance</th>
+                  <th className="px-4 py-3 text-right font-medium">Absences</th>
                   <th className="px-4 py-3 font-medium">NSSF</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3"></th>
@@ -94,6 +98,15 @@ export default async function CompanyPage({
                     </td>
                     <td className="px-4 py-3 text-right">
                       {money(Number(e.loanBalance), cur)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {e._count.absences > 0 ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                          {e._count.absences}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">0</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {e.nssfSubscribed ? "Yes" : "No"}

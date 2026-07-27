@@ -55,8 +55,27 @@ model Employee {
   active             Boolean   @default(true)
   createdAt          DateTime  @default(now())
   payslips           Payslip[]
+  absences           Absence[]
 
   @@index([companyId])
+}
+
+model Absence {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  // the day the employee was absent ("غياب")
+  date       DateTime @db.Date
+  // "full" | "half" — a half-day counts as 0.5 in totals
+  kind       String   @default("full")
+  reason     String?
+  // whether the absence is paid (excused) or unpaid
+  paid       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
 }
 
 model PayrollRun {
