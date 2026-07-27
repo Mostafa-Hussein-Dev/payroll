@@ -122,14 +122,17 @@ export async function deleteEmployee(companyId: string, employeeId: string) {
 
 // ---------- Absences (attendance log) ----------
 
+export type AbsenceFormState = { error: string } | null;
+
 export async function addAbsence(
   companyId: string,
   employeeId: string,
+  _prev: AbsenceFormState,
   form: FormData
-) {
+): Promise<AbsenceFormState> {
   await requireUser();
   const dateStr = s(form, "date");
-  if (!dateStr) throw new Error("Date is required");
+  if (!dateStr) return { error: "Date is required." };
   try {
     await prisma.absence.create({
       data: {
@@ -148,12 +151,12 @@ export async function addAbsence(
       "code" in e &&
       (e as { code?: string }).code === "P2002"
     ) {
-      throw new Error("An absence is already recorded for that date.");
+      return { error: "An absence is already recorded for that date." };
     }
     throw e;
   }
   revalidatePath(`/companies/${companyId}/employees/${employeeId}`);
-  redirect(`/companies/${companyId}/employees/${employeeId}`);
+  return null;
 }
 
 export async function deleteAbsence(
