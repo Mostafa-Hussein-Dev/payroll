@@ -180,6 +180,64 @@ export async function setAttendance(
   redirect(dest);
 }
 
+export type AttendanceSaveState = { ok: boolean; ts: number } | null;
+
+/**
+ * Save a whole month of attendance at once (client calendar Save button).
+ * `data` is a JSON map of dayOfMonth -> "unpaid" | "paid"; present days are
+ * omitted. Reconciles by replacing that employee's absences for the month.
+ */
+export async function saveAttendance(
+  companyId: string,
+  employeeId: string,
+  _prev: AttendanceSaveState,
+  form: FormData
+): Promise<AttendanceSaveState> {
+  await requireUser();
+  const year = int(form, "year", 0);
+  const month = int(form, "month", 0);
+  if (!year || month < 1 || month > 12) return null;
+
+  let map: Record<string, string> = {};
+  try {
+    map = JSON.parse(s(form, "data") || "{}");
+  } catch {
+    map = {};
+  }
+
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 1));
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  const toCreate = Object.entries(map)
+    .map(([day, state]) => ({ day: parseInt(day, 10), state }))
+    .filter(
+      (x) =>
+        x.day >= 1 &&
+        x.day <= daysInMonth &&
+        (x.state === "unpaid" || x.state === "paid")
+    )
+    .map((x) => ({
+      employeeId,
+      date: new Date(Date.UTC(year, month - 1, x.day)),
+      kind: "full",
+      paid: x.state === "paid",
+    }));
+
+  await prisma.$transaction([
+    prisma.absence.deleteMany({
+      where: { employeeId, date: { gte: monthStart, lt: monthEnd } },
+    }),
+    ...(toCreate.length
+      ? [prisma.absence.createMany({ data: toCreate })]
+      : []),
+  ]);
+
+  revalidatePath(`/companies/${companyId}/employees/${employeeId}`);
+  revalidatePath(`/companies/${companyId}`);
+  return { ok: true, ts: Date.now() };
+}
+
 // ---------- Payroll runs ----------
 
 export async function createRun(companyId: string, form: FormData) {

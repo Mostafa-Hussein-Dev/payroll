@@ -77,6 +77,10 @@ export default async function CompanyPage({
     unpaid: t.attendance.legendUnpaid,
     paid: t.attendance.legendPaid,
     clickDay: t.attendance.clickDay,
+    save: t.attendance.save,
+    saving: t.attendance.saving,
+    saved: t.attendance.saved,
+    unsaved: t.attendance.unsaved,
   };
   const dayLabel = (s: DayState) =>
     s === "present"
@@ -175,15 +179,13 @@ export default async function CompanyPage({
               <tbody>
                 {company.employees.map((e) => {
                   const list = absences.filter((a) => a.employeeId === e.id);
-                  const monthStates = new Map<number, DayState>();
+                  const monthStates: Record<number, DayState> = {};
                   for (const a of list) {
-                    monthStates.set(
-                      new Date(a.date).getUTCDate(),
-                      a.paid ? "paid" : "unpaid"
-                    );
+                    monthStates[new Date(a.date).getUTCDate()] = a.paid
+                      ? "paid"
+                      : "unpaid";
                   }
-                  const dayState: DayState =
-                    monthStates.get(selDay) ?? "present";
+                  const dayState: DayState = monthStates[selDay] ?? "present";
                   const absentCount = absenceDays(list);
                   const isOpen = open === e.id;
 
@@ -298,8 +300,7 @@ export default async function CompanyPage({
                               employeeId={e.id}
                               year={selYear}
                               month={selMonth}
-                              states={monthStates}
-                              returnTo={currentUrl}
+                              initial={monthStates}
                               labels={calLabels}
                             />
                           </td>

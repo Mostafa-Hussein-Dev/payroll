@@ -134,6 +134,10 @@ export const dict = {
       legendUnpaid: "Absent — unpaid",
       legendPaid: "Absent — paid",
       clickDay: "Click a day to change it.",
+      save: "Save attendance",
+      saving: "Saving…",
+      saved: "Saved ✓",
+      unsaved: "Unsaved changes",
     },
     employee: {
       name: "Name",
@@ -317,6 +321,10 @@ export const dict = {
       legendUnpaid: "غائب — غير مدفوع",
       legendPaid: "غائب — مدفوع",
       clickDay: "انقر على يوم لتغييره.",
+      save: "حفظ الحضور",
+      saving: "جارٍ الحفظ…",
+      saved: "تم الحفظ ✓",
+      unsaved: "تغييرات غير محفوظة",
     },
     employee: {
       name: "الاسم",

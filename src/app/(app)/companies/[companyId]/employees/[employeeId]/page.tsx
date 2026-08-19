@@ -49,7 +49,6 @@ export default async function EditEmployeePage({
   const prevYm = month === 1 ? `${year - 1}-12` : `${year}-${pad(month - 1)}`;
   const nextYm = month === 12 ? `${year + 1}-01` : `${year}-${pad(month + 1)}`;
   const base = `/companies/${companyId}/employees/${employeeId}`;
-  const returnTo = `${base}?m=${ym}`;
 
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
@@ -57,10 +56,10 @@ export default async function EditEmployeePage({
     where: { employeeId, date: { gte: monthStart, lt: monthEnd } },
   });
 
-  const states = new Map<number, "present" | "unpaid" | "paid">();
+  const states: Record<number, "unpaid" | "paid"> = {};
   for (const a of monthAbsences) {
     const day = new Date(a.date).getUTCDate();
-    states.set(day, a.paid ? "paid" : "unpaid");
+    states[day] = a.paid ? "paid" : "unpaid";
   }
 
   const absentDays = absenceDays(monthAbsences);
@@ -144,13 +143,16 @@ export default async function EditEmployeePage({
           employeeId={employeeId}
           year={year}
           month={month}
-          states={states}
-          returnTo={returnTo}
+          initial={states}
           labels={{
             present: t.attendance.legendPresent,
             unpaid: t.attendance.legendUnpaid,
             paid: t.attendance.legendPaid,
             clickDay: t.attendance.clickDay,
+            save: t.attendance.save,
+            saving: t.attendance.saving,
+            saved: t.attendance.saved,
+            unsaved: t.attendance.unsaved,
           }}
         />
 
