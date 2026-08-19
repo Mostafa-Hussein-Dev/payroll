@@ -68,38 +68,35 @@ export default async function RunPage({
             ← {run.company.name}
           </Link>
           <h1 className="mt-1 text-2xl font-semibold">
-            Payroll · {monthLabel(run.month, run.year)}
+            {monthLabel(run.month, run.year)} payroll
           </h1>
           <p className="text-sm text-slate-500">
-            {run.payslips.length} payslips ·{" "}
-            <span
-              className={
-                locked ? "text-green-700" : "text-amber-700"
-              }
-            >
-              {run.status}
+            {run.payslips.length} employees ·{" "}
+            <span className={locked ? "text-green-700" : "text-amber-700"}>
+              {locked ? "Closed" : "Open"}
             </span>
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-slate-100 px-4 py-2 text-right">
             <div className="text-xs text-slate-500">Total net</div>
-            <div className="text-lg font-semibold">
-              {money(totalNet, cur)}
-            </div>
+            <div className="text-lg font-semibold">{money(totalNet, cur)}</div>
           </div>
           {!locked && (
             <form action={finalize}>
               <ConfirmButton
                 className="btn-primary"
-                confirm="Finalize this run? Loan payments will be applied to employee balances and the run will be locked."
+                confirm="Close this month? Salaries will be handed out (finalized) and loan payments applied to employee balances. The month is then locked."
               >
-                Finalize
+                Close month
               </ConfirmButton>
             </form>
           )}
           <form action={remove}>
-            <ConfirmButton className="btn-danger" confirm="Delete this run?">
+            <ConfirmButton
+              className="btn-danger"
+              confirm="Delete this month's payroll? This removes all its payslips."
+            >
               Delete
             </ConfirmButton>
           </form>
@@ -108,14 +105,14 @@ export default async function RunPage({
 
       {locked && (
         <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
-          This run is finalized and read-only. Loan payments have been applied
-          to employee loan balances.
+          This month is <strong>closed</strong>. Salaries have been handed out
+          and loan payments applied to employee balances. It is read-only.
         </div>
       )}
 
       {run.payslips.length === 0 ? (
         <div className="card p-8 text-center text-slate-500">
-          No active employees existed when this run was created.
+          No active employees existed when this month was opened.
         </div>
       ) : (
         (() => {

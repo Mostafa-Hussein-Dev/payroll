@@ -46,7 +46,7 @@ export default async function DashboardPage() {
                 </span>
               </div>
               <p className="mt-3 text-sm text-slate-500">
-                {c._count.employees} employees · {c._count.payrollRuns} runs
+                {c._count.employees} employees · {c._count.payrollRuns} months
               </p>
             </Link>
           ))}

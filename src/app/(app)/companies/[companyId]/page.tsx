@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { setAttendance, setLoanBalance } from "@/lib/actions";
+import { setAttendance, setLoanBalance, createRun } from "@/lib/actions";
 import { money, num } from "@/lib/format";
 import { absenceDays, monthLabel } from "@/lib/payroll";
 import {
@@ -35,6 +35,14 @@ export default async function CompanyPage({
   if (!company) notFound();
 
   const cur = company.currency;
+
+  // Current calendar month — the month the manager opens/closes.
+  const nowDate = new Date();
+  const curMonth = nowDate.getMonth() + 1;
+  const curYear = nowDate.getFullYear();
+  const currentRun = company.payrollRuns.find(
+    (r) => r.month === curMonth && r.year === curYear
+  );
 
   // Selected attendance day (defaults to today).
   const today = new Date();
@@ -291,22 +299,70 @@ export default async function CompanyPage({
         )}
       </section>
 
-      {/* Payroll runs */}
+      {/* Monthly payroll — open the month, work it, then close it */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">
-            Payroll runs{" "}
-            <span className="text-slate-400">
-              ({company.payrollRuns.length})
-            </span>
-          </h2>
-          <NewRunForm companyId={company.id} />
+          <h2 className="text-lg font-semibold">Monthly payroll</h2>
+          <NewRunForm
+            companyId={company.id}
+            defaultMonth={curMonth}
+            defaultYear={curYear}
+          />
         </div>
 
+        {/* Current month hero */}
+        <div className="card mb-4 flex flex-wrap items-center justify-between gap-4 border-brand-100 bg-brand-50/40 p-5">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-brand-700">
+              This month
+            </div>
+            <div className="text-xl font-semibold">
+              {monthLabel(curMonth, curYear)}
+            </div>
+            {currentRun ? (
+              <p className="mt-1 text-sm text-slate-500">
+                {currentRun.status === "finalized" ? (
+                  <span className="text-green-700">
+                    Closed — salaries handed out.
+                  </span>
+                ) : (
+                  <span className="text-amber-700">
+                    Open — review payslips, then close the month.
+                  </span>
+                )}
+              </p>
+            ) : (
+              <p className="mt-1 max-w-md text-sm text-slate-500">
+                Opening the month creates a payslip for every active employee
+                from their salary and this month&apos;s attendance. You review,
+                then close it to hand out salaries.
+              </p>
+            )}
+          </div>
+          {currentRun ? (
+            <Link
+              href={`/companies/${company.id}/runs/${currentRun.id}`}
+              className="btn-primary"
+            >
+              {currentRun.status === "finalized"
+                ? "View month"
+                : "Continue → close month"}
+            </Link>
+          ) : (
+            <form action={createRun.bind(null, company.id)}>
+              <input type="hidden" name="month" value={curMonth} />
+              <input type="hidden" name="year" value={curYear} />
+              <button type="submit" className="btn-primary">
+                Open {monthLabel(curMonth, curYear)}
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* All months */}
         {company.payrollRuns.length === 0 ? (
-          <div className="card p-8 text-center text-slate-500">
-            No payroll runs yet. Create one to generate payslips for all active
-            employees.
+          <div className="card p-6 text-center text-sm text-slate-500">
+            No months opened yet.
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -326,7 +382,7 @@ export default async function CompanyPage({
                       : "bg-amber-100 text-amber-700"
                   }`}
                 >
-                  {r.status}
+                  {r.status === "finalized" ? "Closed" : "Open"}
                 </span>
               </Link>
             ))}

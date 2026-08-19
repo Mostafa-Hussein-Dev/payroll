@@ -40,8 +40,9 @@ function SaveBar({ currency }: { currency: string }) {
   return (
     <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
       <span className="text-sm text-slate-500">
-        Edits are saved as a <strong>draft</strong> — nothing is locked and loan
-        balances are untouched until you finalize. ({currency})
+        Edits are saved while the month is <strong>open</strong> — nothing is
+        locked and loan balances are untouched until you close the month. (
+        {currency})
       </span>
       <button type="submit" className="btn-primary" disabled={pending}>
         {pending ? "Saving…" : "Save draft"}
