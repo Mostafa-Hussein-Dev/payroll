@@ -130,6 +130,22 @@ export async function deleteEmployee(companyId: string, employeeId: string) {
   redirect(`/companies/${companyId}`);
 }
 
+/** Inline loan/advance balance edit from the main employees table. */
+export async function setLoanBalance(
+  companyId: string,
+  employeeId: string,
+  form: FormData
+) {
+  await requireUser();
+  await prisma.employee.update({
+    where: { id: employeeId },
+    data: { loanBalance: n(form, "loanBalance").toString() },
+  });
+  const returnTo = s(form, "returnTo") || `/companies/${companyId}`;
+  revalidatePath(returnTo);
+  redirect(returnTo);
+}
+
 // ---------- Attendance (تسجيل حضور يومي) ----------
 
 /**

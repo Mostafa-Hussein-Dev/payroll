@@ -1,24 +1,11 @@
 import { setAttendance } from "@/lib/actions";
-
-type DayState = "present" | "unpaid" | "paid";
-
-const NEXT: Record<DayState, DayState> = {
-  present: "unpaid",
-  unpaid: "paid",
-  paid: "present",
-};
-
-const CELL: Record<DayState, string> = {
-  present: "bg-white text-slate-700 hover:bg-slate-100",
-  unpaid: "bg-red-500 text-white hover:bg-red-600",
-  paid: "bg-amber-400 text-amber-950 hover:bg-amber-500",
-};
-
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function pad(n: number) {
-  return n.toString().padStart(2, "0");
-}
+import {
+  DayState,
+  NEXT_STATE,
+  STATE_CELL,
+  WEEKDAYS,
+  pad2 as pad,
+} from "@/lib/attendance";
 
 /**
  * Month attendance grid. Each day cycles present → unpaid → paid on click.
@@ -62,12 +49,12 @@ export function AttendanceCalendar({
           return (
             <form key={d} action={set}>
               <input type="hidden" name="date" value={date} />
-              <input type="hidden" name="next" value={NEXT[state]} />
+              <input type="hidden" name="next" value={NEXT_STATE[state]} />
               <input type="hidden" name="returnTo" value={returnTo} />
               <button
                 type="submit"
                 title={`${date} — ${state}`}
-                className={`aspect-square w-full rounded-md border border-slate-200 text-sm font-medium transition-colors ${CELL[state]}`}
+                className={`aspect-square w-full rounded-md border border-slate-200 text-sm font-medium transition-colors ${STATE_CELL[state]}`}
               >
                 {d}
               </button>
