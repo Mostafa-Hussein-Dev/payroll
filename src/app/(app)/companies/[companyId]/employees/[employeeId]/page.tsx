@@ -1,46 +1,82 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import {
-  updateEmployee,
-  deleteEmployee,
-  addAbsence,
-  deleteAbsence,
-} from "@/lib/actions";
-import { absenceDays } from "@/lib/payroll";
+import { updateEmployee, deleteEmployee } from "@/lib/actions";
+import { absenceDays, dailyWage, monthLabel } from "@/lib/payroll";
+import { money, num } from "@/lib/format";
 import { EmployeeForm } from "../employee-form";
 import { ConfirmButton } from "@/app/(app)/components/confirm-button";
-import { AddAbsenceForm } from "./add-absence-form";
+import { AttendanceCalendar } from "./attendance-calendar";
+
+function pad(n: number) {
+  return n.toString().padStart(2, "0");
+}
 
 export default async function EditEmployeePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ companyId: string; employeeId: string }>;
+  searchParams: Promise<{ m?: string }>;
 }) {
   const { companyId, employeeId } = await params;
+  const { m } = await searchParams;
+
   const employee = await prisma.employee.findFirst({
     where: { id: employeeId, companyId },
-    include: { absences: { orderBy: { date: "desc" } } },
+    include: { company: true },
   });
   if (!employee) notFound();
 
+  const cur = employee.company.currency;
+
+  // Selected month (YYYY-MM), defaulting to the current month.
+  const now = new Date();
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1; // 1-12
+  if (m && /^\d{4}-\d{2}$/.test(m)) {
+    const [y, mo] = m.split("-").map(Number);
+    if (mo >= 1 && mo <= 12) {
+      year = y;
+      month = mo;
+    }
+  }
+  const ym = `${year}-${pad(month)}`;
+  const prevYm = month === 1 ? `${year - 1}-12` : `${year}-${pad(month - 1)}`;
+  const nextYm = month === 12 ? `${year + 1}-01` : `${year}-${pad(month + 1)}`;
+  const base = `/companies/${companyId}/employees/${employeeId}`;
+  const returnTo = `${base}?m=${ym}`;
+
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 1));
+  const monthAbsences = await prisma.absence.findMany({
+    where: { employeeId, date: { gte: monthStart, lt: monthEnd } },
+  });
+
+  const states = new Map<number, "present" | "unpaid" | "paid">();
+  for (const a of monthAbsences) {
+    const day = new Date(a.date).getUTCDate();
+    states.set(day, a.paid ? "paid" : "unpaid");
+  }
+
+  const absentDays = absenceDays(monthAbsences);
+  const unpaidDays = absenceDays(monthAbsences.filter((a) => !a.paid));
+  const presentDays = Math.max(0, employee.standardWorkDays - absentDays);
+  const wage = dailyWage(Number(employee.baseSalary), employee.standardWorkDays);
+  const unpaidAmount = Math.round(unpaidDays * wage * 100) / 100;
+
   const action = updateEmployee.bind(null, companyId, employeeId);
   const remove = deleteEmployee.bind(null, companyId, employeeId);
-  const add = addAbsence.bind(null, companyId, employeeId);
-
-  const totalDays = absenceDays(employee.absences);
-  const unpaidDays = absenceDays(employee.absences.filter((a) => !a.paid));
-
-  const fmt = (d: Date) =>
-    new Date(d).toLocaleDateString("en-GB", {
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">{employee.name}</h1>
+      <div>
+        <Link href={`/companies/${companyId}`} className="text-sm text-slate-500 hover:underline">
+          ← {employee.company.name}
+        </Link>
+        <h1 className="mt-1 text-2xl font-semibold">{employee.name}</h1>
+      </div>
+
       <EmployeeForm
         action={action}
         employee={{
@@ -60,91 +96,58 @@ export default async function EditEmployeePage({
         showActive
       />
 
-      {/* Attendance / absences (غياب) */}
+      {/* Daily attendance (تسجيل حضور يومي) */}
       <div className="card p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Absences (غياب)</h2>
-          <div className="text-right text-sm">
-            <span className="font-semibold">{totalDays}</span> day
-            {totalDays === 1 ? "" : "s"} total
-            <span className="text-slate-400"> · </span>
-            <span className="font-semibold text-red-600">{unpaidDays}</span>{" "}
-            unpaid
+          <h2 className="text-lg font-semibold">
+            Attendance (تسجيل حضور يومي)
+          </h2>
+          <div className="flex items-center gap-2 text-sm">
+            <Link href={`${base}?m=${prevYm}`} className="btn-secondary py-1">
+              ←
+            </Link>
+            <span className="min-w-[7.5rem] text-center font-medium">
+              {monthLabel(month, year)}
+            </span>
+            <Link href={`${base}?m=${nextYm}`} className="btn-secondary py-1">
+              →
+            </Link>
           </div>
         </div>
 
-        <AddAbsenceForm action={add} />
+        {/* Summary */}
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Present" value={`${num(presentDays)}`} sub={`of ${employee.standardWorkDays} std`} />
+          <Stat label="Absent" value={`${num(absentDays)}`} tone="amber" />
+          <Stat label="Unpaid absent" value={`${num(unpaidDays)}`} tone="red" />
+          <Stat
+            label="Unpaid amount"
+            value={money(unpaidAmount, cur)}
+            sub={`@ ${money(wage, cur)}/day`}
+            tone="red"
+          />
+        </div>
 
-        {employee.absences.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-500">
-            No absences recorded yet.
-          </p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 text-left text-slate-500">
-                <tr>
-                  <th className="py-2 pr-3 font-medium">Date</th>
-                  <th className="py-2 pr-3 font-medium">Type</th>
-                  <th className="py-2 pr-3 font-medium">Reason</th>
-                  <th className="py-2 pr-3 font-medium">Paid</th>
-                  <th className="py-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {employee.absences.map((a) => {
-                  const del = deleteAbsence.bind(
-                    null,
-                    companyId,
-                    employeeId,
-                    a.id
-                  );
-                  return (
-                    <tr
-                      key={a.id}
-                      className="border-b border-slate-100 last:border-0"
-                    >
-                      <td className="py-2 pr-3">{fmt(a.date)}</td>
-                      <td className="py-2 pr-3">
-                        {a.kind === "half" ? "Half day" : "Full day"}
-                      </td>
-                      <td className="py-2 pr-3 text-slate-500">
-                        {a.reason || "—"}
-                      </td>
-                      <td className="py-2 pr-3">
-                        {a.paid ? (
-                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                            Paid
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
-                            Unpaid
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 text-right">
-                        <form action={del}>
-                          <ConfirmButton
-                            className="text-red-600 hover:underline"
-                            confirm="Remove this absence?"
-                          >
-                            Remove
-                          </ConfirmButton>
-                        </form>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <AttendanceCalendar
+          companyId={companyId}
+          employeeId={employeeId}
+          year={year}
+          month={month}
+          states={states}
+          returnTo={returnTo}
+        />
+
+        <p className="mt-4 text-xs text-slate-400">
+          Days worked and the unpaid-absence deduction are auto-filled from this
+          attendance when you create the month&apos;s payroll run (and stay
+          editable on the payslip).
+        </p>
       </div>
 
       <div className="card border-red-100 p-6">
         <h2 className="font-medium text-red-600">Danger zone</h2>
         <p className="mb-3 mt-1 text-sm text-slate-500">
-          Deleting an employee removes their payslips and absences.
+          Deleting an employee removes their payslips and attendance.
         </p>
         <form action={remove}>
           <ConfirmButton
@@ -155,6 +158,32 @@ export default async function EditEmployeePage({
           </ConfirmButton>
         </form>
       </div>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  sub,
+  tone = "slate",
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: "slate" | "amber" | "red";
+}) {
+  const color =
+    tone === "red"
+      ? "text-red-600"
+      : tone === "amber"
+        ? "text-amber-600"
+        : "text-slate-900";
+  return (
+    <div className="rounded-lg border border-slate-200 p-3">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className={`text-lg font-semibold ${color}`}>{value}</div>
+      {sub && <div className="text-xs text-slate-400">{sub}</div>}
     </div>
   );
 }

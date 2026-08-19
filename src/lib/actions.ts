@@ -10,6 +10,8 @@ import {
   round2,
   computeNssf,
   transportAllowance,
+  dailyWage,
+  absenceDays,
   INPUT_FIELDS,
 } from "./payroll";
 
@@ -128,54 +130,38 @@ export async function deleteEmployee(companyId: string, employeeId: string) {
   redirect(`/companies/${companyId}`);
 }
 
-// ---------- Absences (attendance log) ----------
+// ---------- Attendance (تسجيل حضور يومي) ----------
 
-export type AbsenceFormState = { error: string } | null;
-
-export async function addAbsence(
+/**
+ * Set one day's attendance for an employee. `next` cycles the day:
+ *   present (no record) → unpaid absence → paid absence → present …
+ * present deletes the day's absence; unpaid/paid upserts it.
+ */
+export async function setAttendance(
   companyId: string,
   employeeId: string,
-  _prev: AbsenceFormState,
   form: FormData
-): Promise<AbsenceFormState> {
-  await requireUser();
-  const dateStr = s(form, "date");
-  if (!dateStr) return { error: "Date is required." };
-  try {
-    await prisma.absence.create({
-      data: {
-        employeeId,
-        date: new Date(dateStr),
-        kind: s(form, "kind") === "half" ? "half" : "full",
-        reason: s(form, "reason") || null,
-        paid: form.get("paid") === "on",
-      },
-    });
-  } catch (e: unknown) {
-    // Unique constraint on (employeeId, date) — one entry per day
-    if (
-      e &&
-      typeof e === "object" &&
-      "code" in e &&
-      (e as { code?: string }).code === "P2002"
-    ) {
-      return { error: "An absence is already recorded for that date." };
-    }
-    throw e;
-  }
-  revalidatePath(`/companies/${companyId}/employees/${employeeId}`);
-  return null;
-}
-
-export async function deleteAbsence(
-  companyId: string,
-  employeeId: string,
-  absenceId: string
 ) {
   await requireUser();
-  await prisma.absence.delete({ where: { id: absenceId } });
-  revalidatePath(`/companies/${companyId}/employees/${employeeId}`);
-  redirect(`/companies/${companyId}/employees/${employeeId}`);
+  const dateStr = s(form, "date");
+  const next = s(form, "next"); // present | unpaid | paid
+  const returnTo = s(form, "returnTo");
+  if (dateStr) {
+    const date = new Date(dateStr);
+    if (next === "present") {
+      await prisma.absence.deleteMany({ where: { employeeId, date } });
+    } else {
+      const paid = next === "paid";
+      await prisma.absence.upsert({
+        where: { employeeId_date: { employeeId, date } },
+        update: { paid, kind: "full" },
+        create: { employeeId, date, paid, kind: "full" },
+      });
+    }
+  }
+  const dest = returnTo || `/companies/${companyId}/employees/${employeeId}`;
+  revalidatePath(dest);
+  redirect(dest);
 }
 
 // ---------- Payroll runs ----------
@@ -202,6 +188,18 @@ export async function createRun(companyId: string, form: FormData) {
     orderBy: { name: "asc" },
   });
 
+  // Attendance recorded for this month, used to auto-fill days worked and the
+  // unpaid-absence deduction (both still editable on the payslip afterwards).
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 1));
+  const monthAbsences = await prisma.absence.findMany({
+    where: {
+      employeeId: { in: employees.map((e) => e.id) },
+      date: { gte: monthStart, lt: monthEnd },
+    },
+    select: { employeeId: true, kind: true, paid: true },
+  });
+
   const run = await prisma.payrollRun.create({
     data: {
       companyId,
@@ -210,10 +208,15 @@ export async function createRun(companyId: string, form: FormData) {
       payslips: {
         create: employees.map((e) => {
           const base = Number(e.baseSalary);
+          const list = monthAbsences.filter((a) => a.employeeId === e.id);
+          const absentDays = absenceDays(list);
+          const unpaidDays = absenceDays(list.filter((a) => !a.paid));
+          const wage = dailyWage(base, e.standardWorkDays);
+          const daysWorked = Math.max(0, e.standardWorkDays - absentDays);
           const amounts: PayslipAmounts = {
             baseSalary: base,
             dailyTransportRate: Number(e.dailyTransportRate),
-            daysWorked: 0,
+            daysWorked,
             familyAllowance: Number(e.familyAllowance),
             overtime: 0,
             salaryAdjAddition: 0,
@@ -222,7 +225,7 @@ export async function createRun(companyId: string, form: FormData) {
               ? computeNssf(base, nssfMode, nssfValue)
               : 0,
             nssfDifference: 0,
-            absenceDeduction: 0,
+            absenceDeduction: round2(unpaidDays * wage),
             salaryAdjDeduction: 0,
             purchases: 0,
             advance: 0,
