@@ -24,6 +24,12 @@ function s(form: FormData, key: string): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+function int(form: FormData, key: string, fallback: number): number {
+  const v = form.get(key);
+  const parsed = typeof v === "string" ? parseInt(v, 10) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 // ---------- Companies ----------
 
 export async function createCompany(form: FormData) {
@@ -78,6 +84,7 @@ export async function createEmployee(companyId: string, form: FormData) {
       name,
       employeeNo: s(form, "employeeNo") || null,
       baseSalary: n(form, "baseSalary").toString(),
+      standardWorkDays: int(form, "standardWorkDays", 30),
       dailyTransportRate: n(form, "dailyTransportRate").toString(),
       familyAllowance: n(form, "familyAllowance").toString(),
       nssfSubscribed: form.get("nssfSubscribed") === "on",
@@ -101,6 +108,7 @@ export async function updateEmployee(
       name: s(form, "name"),
       employeeNo: s(form, "employeeNo") || null,
       baseSalary: n(form, "baseSalary").toString(),
+      standardWorkDays: int(form, "standardWorkDays", 30),
       dailyTransportRate: n(form, "dailyTransportRate").toString(),
       familyAllowance: n(form, "familyAllowance").toString(),
       nssfSubscribed: form.get("nssfSubscribed") === "on",
@@ -222,6 +230,7 @@ export async function createRun(companyId: string, form: FormData) {
           };
           return {
             employeeId: e.id,
+            standardWorkDays: e.standardWorkDays,
             ...toStrings(amounts),
             loanBalanceBefore: e.loanBalance.toString(),
             netPay: netPay(amounts).toString(),

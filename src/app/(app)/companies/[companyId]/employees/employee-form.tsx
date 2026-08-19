@@ -4,6 +4,7 @@ type EmployeeValues = {
   name?: string;
   employeeNo?: string | null;
   baseSalary?: string | number;
+  standardWorkDays?: string | number;
   dailyTransportRate?: string | number;
   familyAllowance?: string | number;
   loanBalance?: string | number;
@@ -97,6 +98,23 @@ export function EmployeeForm({
             className="input"
             defaultValue={employee?.familyAllowance?.toString() ?? "0"}
           />
+        </div>
+        <div>
+          <label className="label" htmlFor="standardWorkDays">
+            Standard work days (أيام العمل الأساسية)
+          </label>
+          <input
+            id="standardWorkDays"
+            name="standardWorkDays"
+            type="number"
+            step="1"
+            min="1"
+            className="input"
+            defaultValue={employee?.standardWorkDays?.toString() ?? "30"}
+          />
+          <p className="mt-1 text-xs text-slate-400">
+            Daily wage = base salary ÷ standard work days.
+          </p>
         </div>
       </div>
 
