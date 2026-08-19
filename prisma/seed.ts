@@ -34,6 +34,7 @@ async function main() {
               employeeNo: "1001",
               baseSalary: "500",
               standardWorkDays: 26,
+              dailyAbsenceDeduction: "19.23",
               dailyTransportRate: "5",
               familyAllowance: "0",
               nssfSubscribed: true,

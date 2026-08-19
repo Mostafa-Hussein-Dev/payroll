@@ -91,12 +91,6 @@ export function computeNssf(
   return round2((baseSalary * value) / 100);
 }
 
-/** أجر اليوم = base salary ÷ standard work days (0 if no standard days set). */
-export function dailyWage(baseSalary: number, standardWorkDays: number): number {
-  if (!standardWorkDays || standardWorkDays <= 0) return 0;
-  return round2(baseSalary / standardWorkDays);
-}
-
 /** Total absence days for a list of absences (half-day counts as 0.5). */
 export function absenceDays(list: { kind: string }[]): number {
   return list.reduce((s, a) => s + (a.kind === "half" ? 0.5 : 1), 0);

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { updateEmployee, deleteEmployee } from "@/lib/actions";
-import { absenceDays, dailyWage } from "@/lib/payroll";
+import { absenceDays } from "@/lib/payroll";
 import { formatMonth, tf } from "@/lib/i18n";
 import { getT } from "@/lib/i18n.server";
 import { money, num } from "@/lib/format";
@@ -65,8 +65,8 @@ export default async function EditEmployeePage({
   const absentDays = absenceDays(monthAbsences);
   const unpaidDays = absenceDays(monthAbsences.filter((a) => !a.paid));
   const presentDays = Math.max(0, employee.standardWorkDays - absentDays);
-  const wage = dailyWage(Number(employee.baseSalary), employee.standardWorkDays);
-  const unpaidAmount = Math.round(unpaidDays * wage * 100) / 100;
+  const rate = Number(employee.dailyAbsenceDeduction);
+  const unpaidAmount = Math.round(unpaidDays * rate * 100) / 100;
 
   const action = updateEmployee.bind(null, companyId, employeeId);
   const remove = deleteEmployee.bind(null, companyId, employeeId);
@@ -87,6 +87,7 @@ export default async function EditEmployeePage({
           employeeNo: employee.employeeNo,
           baseSalary: employee.baseSalary.toString(),
           standardWorkDays: employee.standardWorkDays,
+          dailyAbsenceDeduction: employee.dailyAbsenceDeduction.toString(),
           dailyTransportRate: employee.dailyTransportRate.toString(),
           familyAllowance: employee.familyAllowance.toString(),
           loanBalance: employee.loanBalance.toString(),
@@ -133,7 +134,7 @@ export default async function EditEmployeePage({
           <Stat
             label={t.attendance.unpaidAmount}
             value={money(unpaidAmount, cur)}
-            sub={tf(t.attendance.perDay, { wage: money(wage, cur) })}
+            sub={tf(t.attendance.perDay, { wage: money(rate, cur) })}
             tone="red"
           />
         </div>

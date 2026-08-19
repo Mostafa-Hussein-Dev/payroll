@@ -6,6 +6,7 @@ type EmployeeValues = {
   employeeNo?: string | null;
   baseSalary?: string | number;
   standardWorkDays?: string | number;
+  dailyAbsenceDeduction?: string | number;
   dailyTransportRate?: string | number;
   familyAllowance?: string | number;
   loanBalance?: string | number;
@@ -116,7 +117,22 @@ export function EmployeeForm({
             className="input"
             defaultValue={employee?.standardWorkDays?.toString() ?? "30"}
           />
-          <p className="mt-1 text-xs text-slate-400">{e.dailyWageHelp}</p>
+          <p className="mt-1 text-xs text-slate-400">{e.stdWorkDaysHelp}</p>
+        </div>
+        <div>
+          <label className="label" htmlFor="dailyAbsenceDeduction">
+            {e.dailyAbsence}
+          </label>
+          <input
+            id="dailyAbsenceDeduction"
+            name="dailyAbsenceDeduction"
+            type="number"
+            step="0.01"
+            min="0"
+            className="input"
+            defaultValue={employee?.dailyAbsenceDeduction?.toString() ?? "0"}
+          />
+          <p className="mt-1 text-xs text-slate-400">{e.dailyAbsenceHelp}</p>
         </div>
       </div>
 

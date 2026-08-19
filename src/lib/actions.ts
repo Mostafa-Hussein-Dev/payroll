@@ -10,7 +10,6 @@ import {
   round2,
   computeNssf,
   transportAllowance,
-  dailyWage,
   absenceDays,
   INPUT_FIELDS,
 } from "./payroll";
@@ -87,6 +86,7 @@ export async function createEmployee(companyId: string, form: FormData) {
       employeeNo: s(form, "employeeNo") || null,
       baseSalary: n(form, "baseSalary").toString(),
       standardWorkDays: int(form, "standardWorkDays", 30),
+      dailyAbsenceDeduction: n(form, "dailyAbsenceDeduction").toString(),
       dailyTransportRate: n(form, "dailyTransportRate").toString(),
       familyAllowance: n(form, "familyAllowance").toString(),
       nssfSubscribed: form.get("nssfSubscribed") === "on",
@@ -111,6 +111,7 @@ export async function updateEmployee(
       employeeNo: s(form, "employeeNo") || null,
       baseSalary: n(form, "baseSalary").toString(),
       standardWorkDays: int(form, "standardWorkDays", 30),
+      dailyAbsenceDeduction: n(form, "dailyAbsenceDeduction").toString(),
       dailyTransportRate: n(form, "dailyTransportRate").toString(),
       familyAllowance: n(form, "familyAllowance").toString(),
       nssfSubscribed: form.get("nssfSubscribed") === "on",
@@ -285,7 +286,7 @@ export async function createRun(companyId: string, form: FormData) {
           const list = monthAbsences.filter((a) => a.employeeId === e.id);
           const absentDays = absenceDays(list);
           const unpaidDays = absenceDays(list.filter((a) => !a.paid));
-          const wage = dailyWage(base, e.standardWorkDays);
+          const absenceRate = Number(e.dailyAbsenceDeduction);
           const daysWorked = Math.max(0, e.standardWorkDays - absentDays);
           const amounts: PayslipAmounts = {
             baseSalary: base,
@@ -299,7 +300,7 @@ export async function createRun(companyId: string, form: FormData) {
               ? computeNssf(base, nssfMode, nssfValue)
               : 0,
             nssfDifference: 0,
-            absenceDeduction: round2(unpaidDays * wage),
+            absenceDeduction: round2(unpaidDays * absenceRate),
             salaryAdjDeduction: 0,
             purchases: 0,
             advance: 0,
@@ -319,6 +320,65 @@ export async function createRun(companyId: string, form: FormData) {
 
   revalidatePath(`/companies/${companyId}`);
   redirect(`/companies/${companyId}/runs/${run.id}`);
+}
+
+/**
+ * Recompute days worked and the absence deduction for every payslip in an open
+ * run from the CURRENT attendance for that month. Other fields (overtime,
+ * additions, etc.) are preserved. Use after editing attendance post-open.
+ */
+export async function recomputeRun(companyId: string, runId: string) {
+  await requireUser();
+  const run = await prisma.payrollRun.findFirstOrThrow({
+    where: { id: runId, companyId },
+    include: { payslips: { include: { employee: true } } },
+  });
+  if (run.status === "finalized") {
+    redirect(`/companies/${companyId}/runs/${runId}`);
+  }
+
+  const monthStart = new Date(Date.UTC(run.year, run.month - 1, 1));
+  const monthEnd = new Date(Date.UTC(run.year, run.month, 1));
+  const absences = await prisma.absence.findMany({
+    where: {
+      employeeId: { in: run.payslips.map((p) => p.employeeId) },
+      date: { gte: monthStart, lt: monthEnd },
+    },
+    select: { employeeId: true, kind: true, paid: true },
+  });
+
+  await prisma.$transaction(
+    run.payslips.map((p) => {
+      const list = absences.filter((a) => a.employeeId === p.employeeId);
+      const absentDays = absenceDays(list);
+      const unpaidDays = absenceDays(list.filter((a) => !a.paid));
+      const daysWorked = Math.max(0, p.standardWorkDays - absentDays);
+      const absenceRate = Number(p.employee.dailyAbsenceDeduction);
+      const amounts: PayslipAmounts = {
+        baseSalary: Number(p.baseSalary),
+        dailyTransportRate: Number(p.dailyTransportRate),
+        daysWorked,
+        familyAllowance: Number(p.familyAllowance),
+        overtime: Number(p.overtime),
+        salaryAdjAddition: Number(p.salaryAdjAddition),
+        otherAdditions: Number(p.otherAdditions),
+        nssfDeduction: Number(p.nssfDeduction),
+        nssfDifference: Number(p.nssfDifference),
+        absenceDeduction: round2(unpaidDays * absenceRate),
+        salaryAdjDeduction: Number(p.salaryAdjDeduction),
+        purchases: Number(p.purchases),
+        advance: Number(p.advance),
+        loanPayment: Number(p.loanPayment),
+      };
+      return prisma.payslip.update({
+        where: { id: p.id },
+        data: { ...toStrings(amounts), netPay: netPay(amounts).toString() },
+      });
+    })
+  );
+
+  revalidatePath(`/companies/${companyId}/runs/${runId}`);
+  redirect(`/companies/${companyId}/runs/${runId}`);
 }
 
 /**

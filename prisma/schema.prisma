@@ -43,8 +43,10 @@ model Employee {
   name               String
   // "الراتب" base salary
   baseSalary         Decimal   @default(0) @db.Decimal(14, 2)
-  // "ايام العمل الاساسية" standard work days per month — daily wage = salary / this
+  // "ايام العمل الاساسية" standard work days per month — baseline for days worked
   standardWorkDays   Int       @default(30)
+  // "حسم الغياب اليومي" flat deduction per unpaid absent day (manual rate)
+  dailyAbsenceDeduction Decimal @default(0) @db.Decimal(14, 2)
   // "بدل نقل يومي" daily transport rate — monthly transport = rate × days worked
   dailyTransportRate Decimal   @default(0) @db.Decimal(14, 2)
   // "تعويض العائلي" family allowance

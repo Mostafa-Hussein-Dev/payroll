@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { saveRunDraft, finalizeRun, deleteRun } from "@/lib/actions";
+import {
+  saveRunDraft,
+  finalizeRun,
+  deleteRun,
+  recomputeRun,
+} from "@/lib/actions";
 import { money } from "@/lib/format";
 import { absenceDays } from "@/lib/payroll";
 import { formatMonth, tf } from "@/lib/i18n";
@@ -59,6 +64,7 @@ export default async function RunPage({
   const saveDraft = saveRunDraft.bind(null, companyId, runId);
   const finalize = finalizeRun.bind(null, companyId, runId);
   const remove = deleteRun.bind(null, companyId, runId);
+  const recompute = recomputeRun.bind(null, companyId, runId);
   const payslipIds = run.payslips.map((p) => p.id).join(",");
 
   return (
@@ -94,6 +100,16 @@ export default async function RunPage({
           >
             {t.pdf.exportPdf}
           </Link>
+          {!locked && (
+            <form action={recompute}>
+              <ConfirmButton
+                className="btn-secondary"
+                confirm={t.month.confirmRefresh}
+              >
+                {t.month.refreshAttendance}
+              </ConfirmButton>
+            </form>
+          )}
           {!locked && (
             <form action={finalize}>
               <ConfirmButton
