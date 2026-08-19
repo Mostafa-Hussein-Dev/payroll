@@ -43,8 +43,8 @@ model Employee {
   name               String
   // "الراتب" base salary
   baseSalary         Decimal   @default(0) @db.Decimal(14, 2)
-  // "بدل نقل" transport allowance
-  transportAllowance Decimal   @default(0) @db.Decimal(14, 2)
+  // "بدل نقل يومي" daily transport rate — monthly transport = rate × days worked
+  dailyTransportRate Decimal   @default(0) @db.Decimal(14, 2)
   // "تعويض العائلي" family allowance
   familyAllowance    Decimal   @default(0) @db.Decimal(14, 2)
   // whether NSSF (الضمان) is deducted for this employee
@@ -101,6 +101,9 @@ model Payslip {
 
   // --- Earnings ---
   baseSalary         Decimal @default(0) @db.Decimal(14, 2)
+  // transport = dailyTransportRate × daysWorked (stored as the computed result)
+  dailyTransportRate Decimal @default(0) @db.Decimal(14, 2)
+  daysWorked         Decimal @default(0) @db.Decimal(6, 2)
   transportAllowance Decimal @default(0) @db.Decimal(14, 2)
   familyAllowance    Decimal @default(0) @db.Decimal(14, 2)
   overtime           Decimal @default(0) @db.Decimal(14, 2) // ساعات عمل اضافي

@@ -47,7 +47,7 @@ export default async function EditEmployeePage({
           name: employee.name,
           employeeNo: employee.employeeNo,
           baseSalary: employee.baseSalary.toString(),
-          transportAllowance: employee.transportAllowance.toString(),
+          dailyTransportRate: employee.dailyTransportRate.toString(),
           familyAllowance: employee.familyAllowance.toString(),
           loanBalance: employee.loanBalance.toString(),
           nssfSubscribed: employee.nssfSubscribed,

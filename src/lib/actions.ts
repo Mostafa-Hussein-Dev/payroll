@@ -9,8 +9,8 @@ import {
   netPay,
   round2,
   computeNssf,
-  EARNING_FIELDS,
-  DEDUCTION_FIELDS,
+  transportAllowance,
+  INPUT_FIELDS,
 } from "./payroll";
 
 function n(form: FormData, key: string): number {
@@ -78,7 +78,7 @@ export async function createEmployee(companyId: string, form: FormData) {
       name,
       employeeNo: s(form, "employeeNo") || null,
       baseSalary: n(form, "baseSalary").toString(),
-      transportAllowance: n(form, "transportAllowance").toString(),
+      dailyTransportRate: n(form, "dailyTransportRate").toString(),
       familyAllowance: n(form, "familyAllowance").toString(),
       nssfSubscribed: form.get("nssfSubscribed") === "on",
       loanBalance: n(form, "loanBalance").toString(),
@@ -101,7 +101,7 @@ export async function updateEmployee(
       name: s(form, "name"),
       employeeNo: s(form, "employeeNo") || null,
       baseSalary: n(form, "baseSalary").toString(),
-      transportAllowance: n(form, "transportAllowance").toString(),
+      dailyTransportRate: n(form, "dailyTransportRate").toString(),
       familyAllowance: n(form, "familyAllowance").toString(),
       nssfSubscribed: form.get("nssfSubscribed") === "on",
       loanBalance: n(form, "loanBalance").toString(),
@@ -204,7 +204,8 @@ export async function createRun(companyId: string, form: FormData) {
           const base = Number(e.baseSalary);
           const amounts: PayslipAmounts = {
             baseSalary: base,
-            transportAllowance: Number(e.transportAllowance),
+            dailyTransportRate: Number(e.dailyTransportRate),
+            daysWorked: 0,
             familyAllowance: Number(e.familyAllowance),
             overtime: 0,
             salaryAdjAddition: 0,
@@ -234,39 +235,6 @@ export async function createRun(companyId: string, form: FormData) {
   redirect(`/companies/${companyId}/runs/${run.id}`);
 }
 
-export async function savePayslip(
-  companyId: string,
-  runId: string,
-  payslipId: string,
-  form: FormData
-) {
-  await requireUser();
-  const amounts: PayslipAmounts = {
-    baseSalary: n(form, "baseSalary"),
-    transportAllowance: n(form, "transportAllowance"),
-    familyAllowance: n(form, "familyAllowance"),
-    overtime: n(form, "overtime"),
-    salaryAdjAddition: n(form, "salaryAdjAddition"),
-    otherAdditions: n(form, "otherAdditions"),
-    nssfDeduction: n(form, "nssfDeduction"),
-    nssfDifference: n(form, "nssfDifference"),
-    absenceDeduction: n(form, "absenceDeduction"),
-    salaryAdjDeduction: n(form, "salaryAdjDeduction"),
-    purchases: n(form, "purchases"),
-    advance: n(form, "advance"),
-    loanPayment: n(form, "loanPayment"),
-  };
-  await prisma.payslip.update({
-    where: { id: payslipId },
-    data: {
-      ...toStrings(amounts),
-      loanBalanceBefore: n(form, "loanBalanceBefore").toString(),
-      netPay: netPay(amounts).toString(),
-    },
-  });
-  revalidatePath(`/companies/${companyId}/runs/${runId}`);
-}
-
 /**
  * Save the whole run as a draft: persist every payslip's edited amounts in one
  * transaction. Leaves the run status as "draft" (nothing is locked, no loan
@@ -284,12 +252,11 @@ export async function saveRunDraft(
   const ids = String(form.get("payslipIds") || "")
     .split(",")
     .filter(Boolean);
-  const fields = [...EARNING_FIELDS, ...DEDUCTION_FIELDS];
 
   await prisma.$transaction(
     ids.map((id) => {
       const amounts = {} as PayslipAmounts;
-      for (const f of fields) amounts[f] = n(form, `${id}__${f}`);
+      for (const f of INPUT_FIELDS) amounts[f] = n(form, `${id}__${f}`);
       return prisma.payslip.update({
         where: { id },
         data: {
@@ -351,8 +318,10 @@ export async function deleteRun(companyId: string, runId: string) {
 
 function toStrings(a: PayslipAmounts): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const f of [...EARNING_FIELDS, ...DEDUCTION_FIELDS]) {
+  for (const f of INPUT_FIELDS) {
     out[f] = (a[f] || 0).toString();
   }
+  // transport is derived from the daily rate × days worked
+  out.transportAllowance = transportAllowance(a).toString();
   return out;
 }

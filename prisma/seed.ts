@@ -33,7 +33,7 @@ async function main() {
               name: "Sample Employee",
               employeeNo: "1001",
               baseSalary: "500",
-              transportAllowance: "50",
+              dailyTransportRate: "5",
               familyAllowance: "0",
               nssfSubscribed: true,
               loanBalance: "0",

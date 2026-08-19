@@ -8,7 +8,8 @@ type PayslipData = {
   employeeName: string;
   employeeNo: string | null;
   baseSalary: number;
-  transportAllowance: number;
+  dailyTransportRate: number;
+  daysWorked: number;
   familyAllowance: number;
   overtime: number;
   salaryAdjAddition: number;
@@ -24,9 +25,9 @@ type PayslipData = {
   netPay: number;
 };
 
+// Earnings other than transport (transport is derived from rate × days).
 const EARNINGS: { key: keyof PayslipData; label: string }[] = [
   { key: "baseSalary", label: "Salary (الراتب)" },
-  { key: "transportAllowance", label: "Transport (بدل نقل)" },
   { key: "familyAllowance", label: "Family (تعويض عائلي)" },
   { key: "overtime", label: "Overtime (عمل اضافي)" },
   { key: "salaryAdjAddition", label: "Salary adj. + (تقديمات تعديل)" },
@@ -43,6 +44,17 @@ const DEDUCTIONS: { key: keyof PayslipData; label: string }[] = [
   { key: "loanPayment", label: "Loan payment (دفعة قرض)" },
 ];
 
+const NUMERIC_KEYS: (keyof PayslipData)[] = [
+  ...EARNINGS.map((f) => f.key),
+  "dailyTransportRate",
+  "daysWorked",
+  ...DEDUCTIONS.map((f) => f.key),
+];
+
+function round2(n: number) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 export function PayslipEditor({
   currency,
   locked,
@@ -56,16 +68,20 @@ export function PayslipEditor({
 }) {
   const initial = useMemo(() => {
     const o: Record<string, number> = {};
-    for (const f of [...EARNINGS, ...DEDUCTIONS]) {
-      o[f.key] = payslip[f.key] as number;
-    }
+    for (const k of NUMERIC_KEYS) o[k] = payslip[k] as number;
     return o;
   }, [payslip]);
 
   const [vals, setVals] = useState<Record<string, number>>(initial);
   const prefix = `${payslip.id}__`;
+  const set = (k: string) => (v: number) =>
+    setVals((s) => ({ ...s, [k]: v }));
 
-  const totalEarnings = EARNINGS.reduce((s, f) => s + (vals[f.key] || 0), 0);
+  const transport = round2(
+    (vals.dailyTransportRate || 0) * (vals.daysWorked || 0)
+  );
+  const totalEarnings =
+    EARNINGS.reduce((s, f) => s + (vals[f.key] || 0), 0) + transport;
   const totalDeductions = DEDUCTIONS.reduce(
     (s, f) => s + (vals[f.key] || 0),
     0
@@ -113,14 +129,46 @@ export function PayslipEditor({
             Earnings
           </h4>
           <div className="space-y-2">
-            {EARNINGS.map((f) => (
+            <Field
+              name={`${prefix}baseSalary`}
+              label="Salary (الراتب)"
+              value={vals.baseSalary}
+              locked={locked}
+              onChange={set("baseSalary")}
+            />
+
+            {/* Transport = daily rate × days worked */}
+            <Field
+              name={`${prefix}dailyTransportRate`}
+              label="Daily transport (بدل نقل يومي)"
+              value={vals.dailyTransportRate}
+              locked={locked}
+              onChange={set("dailyTransportRate")}
+            />
+            <Field
+              name={`${prefix}daysWorked`}
+              label="Days worked (أيام العمل)"
+              value={vals.daysWorked}
+              locked={locked}
+              onChange={set("daysWorked")}
+            />
+            <div className="flex items-center justify-between gap-3 rounded-md bg-green-50 px-2 py-1 text-sm">
+              <span className="text-slate-600">
+                Transport (بدل نقل) = rate × days
+              </span>
+              <span className="font-medium">
+                {num(transport)} {currency}
+              </span>
+            </div>
+
+            {EARNINGS.filter((f) => f.key !== "baseSalary").map((f) => (
               <Field
                 key={f.key}
                 name={`${prefix}${f.key}`}
                 label={f.label}
                 value={vals[f.key]}
                 locked={locked}
-                onChange={(v) => setVals((s) => ({ ...s, [f.key]: v }))}
+                onChange={set(f.key)}
               />
             ))}
           </div>
@@ -141,7 +189,7 @@ export function PayslipEditor({
                 label={f.label}
                 value={vals[f.key]}
                 locked={locked}
-                onChange={(v) => setVals((s) => ({ ...s, [f.key]: v }))}
+                onChange={set(f.key)}
               />
             ))}
           </div>

@@ -4,7 +4,7 @@ type EmployeeValues = {
   name?: string;
   employeeNo?: string | null;
   baseSalary?: string | number;
-  transportAllowance?: string | number;
+  dailyTransportRate?: string | number;
   familyAllowance?: string | number;
   loanBalance?: string | number;
   nssfSubscribed?: boolean;
@@ -73,16 +73,16 @@ export function EmployeeForm({
           />
         </div>
         <div>
-          <label className="label" htmlFor="transportAllowance">
-            Transport (بدل نقل)
+          <label className="label" htmlFor="dailyTransportRate">
+            Daily transport (بدل نقل يومي)
           </label>
           <input
-            id="transportAllowance"
-            name="transportAllowance"
+            id="dailyTransportRate"
+            name="dailyTransportRate"
             type="number"
             step="0.01"
             className="input"
-            defaultValue={employee?.transportAllowance?.toString() ?? "0"}
+            defaultValue={employee?.dailyTransportRate?.toString() ?? "0"}
           />
         </div>
         <div>

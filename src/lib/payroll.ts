@@ -3,7 +3,9 @@
 
 export type PayslipAmounts = {
   baseSalary: number;
-  transportAllowance: number;
+  // transport is derived: dailyTransportRate × daysWorked
+  dailyTransportRate: number;
+  daysWorked: number;
   familyAllowance: number;
   overtime: number;
   salaryAdjAddition: number;
@@ -17,16 +19,18 @@ export type PayslipAmounts = {
   loanPayment: number;
 };
 
-export const EARNING_FIELDS: (keyof PayslipAmounts)[] = [
+/**
+ * Raw numeric fields captured from the payslip form and stored as-is.
+ * `transportAllowance` is NOT here — it is derived via transportAllowance().
+ */
+export const INPUT_FIELDS: (keyof PayslipAmounts)[] = [
   "baseSalary",
-  "transportAllowance",
+  "dailyTransportRate",
+  "daysWorked",
   "familyAllowance",
   "overtime",
   "salaryAdjAddition",
   "otherAdditions",
-];
-
-export const DEDUCTION_FIELDS: (keyof PayslipAmounts)[] = [
   "nssfDeduction",
   "nssfDifference",
   "absenceDeduction",
@@ -36,12 +40,32 @@ export const DEDUCTION_FIELDS: (keyof PayslipAmounts)[] = [
   "loanPayment",
 ];
 
+/** بدل نقل = daily transport rate × days worked. */
+export function transportAllowance(a: PayslipAmounts): number {
+  return round2((a.dailyTransportRate || 0) * (a.daysWorked || 0));
+}
+
 export function totalEarnings(a: PayslipAmounts): number {
-  return EARNING_FIELDS.reduce((s, f) => s + (a[f] || 0), 0);
+  return round2(
+    (a.baseSalary || 0) +
+      transportAllowance(a) +
+      (a.familyAllowance || 0) +
+      (a.overtime || 0) +
+      (a.salaryAdjAddition || 0) +
+      (a.otherAdditions || 0)
+  );
 }
 
 export function totalDeductions(a: PayslipAmounts): number {
-  return DEDUCTION_FIELDS.reduce((s, f) => s + (a[f] || 0), 0);
+  return round2(
+    (a.nssfDeduction || 0) +
+      (a.nssfDifference || 0) +
+      (a.absenceDeduction || 0) +
+      (a.salaryAdjDeduction || 0) +
+      (a.purchases || 0) +
+      (a.advance || 0) +
+      (a.loanPayment || 0)
+  );
 }
 
 /** المستحق للدفع = earnings - deductions */
