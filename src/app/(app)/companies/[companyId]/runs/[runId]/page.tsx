@@ -88,6 +88,12 @@ export default async function RunPage({
             <div className="text-xs text-slate-500">{t.month.totalNet}</div>
             <div className="text-lg font-semibold">{money(totalNet, cur)}</div>
           </div>
+          <Link
+            href={`/companies/${companyId}/runs/${runId}/print`}
+            className="btn-secondary"
+          >
+            {t.pdf.exportPdf}
+          </Link>
           {!locked && (
             <form action={finalize}>
               <ConfirmButton

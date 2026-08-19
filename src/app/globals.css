@@ -31,3 +31,29 @@
     @apply rounded-xl border border-slate-200 bg-white shadow-sm;
   }
 }
+
+/* Print / Save-as-PDF layout */
+@media print {
+  header,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .page-break {
+    break-before: page;
+  }
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}
+
