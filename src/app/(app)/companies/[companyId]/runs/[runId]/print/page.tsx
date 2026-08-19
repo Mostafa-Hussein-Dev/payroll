@@ -94,8 +94,8 @@ export default async function RunPrintPage({
         <PrintButton label={t.pdf.print} />
       </div>
 
-      {/* ---------- Page 1: summary sheet ---------- */}
-      <section className="print-avoid-break">
+      {/* ---------- Page 1: summary sheet (landscape) ---------- */}
+      <section className="landscape-page print-avoid-break">
         <div className="mb-3 flex items-end justify-between">
           <div>
             <h1 className="text-xl font-bold">{run.company.name}</h1>

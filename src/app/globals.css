@@ -52,8 +52,16 @@
     break-inside: avoid;
   }
   @page {
-    size: A4;
+    size: A4 portrait;
     margin: 12mm;
+  }
+  /* The summary sheet prints landscape; payslip pages stay portrait. */
+  @page summary {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+  .landscape-page {
+    page: summary;
   }
 }
 
