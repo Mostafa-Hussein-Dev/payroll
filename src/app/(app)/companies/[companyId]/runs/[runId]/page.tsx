@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { saveRunDraft, finalizeRun, deleteRun } from "@/lib/actions";
 import { money } from "@/lib/format";
-import { monthLabel, absenceDays } from "@/lib/payroll";
+import { absenceDays } from "@/lib/payroll";
+import { formatMonth, tf } from "@/lib/i18n";
+import { getT } from "@/lib/i18n.server";
 import { ConfirmButton } from "@/app/(app)/components/confirm-button";
 import { PayslipEditor } from "./payslip-editor";
 import { RunForm } from "./run-form";
@@ -14,6 +16,8 @@ export default async function RunPage({
   params: Promise<{ companyId: string; runId: string }>;
 }) {
   const { companyId, runId } = await params;
+  const { t, locale } = await getT();
+  const backArrow = locale === "ar" ? "→" : "←";
   const run = await prisma.payrollRun.findFirst({
     where: { id: runId, companyId },
     include: {
@@ -65,39 +69,41 @@ export default async function RunPage({
             href={`/companies/${companyId}`}
             className="text-sm text-slate-500 hover:underline"
           >
-            ← {run.company.name}
+            {backArrow} {run.company.name}
           </Link>
           <h1 className="mt-1 text-2xl font-semibold">
-            {monthLabel(run.month, run.year)} payroll
+            {tf(t.month.titleSuffix, {
+              month: formatMonth(t, run.month, run.year),
+            })}
           </h1>
           <p className="text-sm text-slate-500">
-            {run.payslips.length} employees ·{" "}
+            {run.payslips.length} {t.month.employees} ·{" "}
             <span className={locked ? "text-green-700" : "text-amber-700"}>
-              {locked ? "Closed" : "Open"}
+              {locked ? t.monthly.closedBadge : t.monthly.openBadge}
             </span>
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-slate-100 px-4 py-2 text-right">
-            <div className="text-xs text-slate-500">Total net</div>
+          <div className="rounded-lg bg-slate-100 px-4 py-2 text-end">
+            <div className="text-xs text-slate-500">{t.month.totalNet}</div>
             <div className="text-lg font-semibold">{money(totalNet, cur)}</div>
           </div>
           {!locked && (
             <form action={finalize}>
               <ConfirmButton
                 className="btn-primary"
-                confirm="Close this month? Salaries will be handed out (finalized) and loan payments applied to employee balances. The month is then locked."
+                confirm={t.month.confirmClose}
               >
-                Close month
+                {t.month.closeMonth}
               </ConfirmButton>
             </form>
           )}
           <form action={remove}>
             <ConfirmButton
               className="btn-danger"
-              confirm="Delete this month's payroll? This removes all its payslips."
+              confirm={t.month.confirmDelete}
             >
-              Delete
+              {t.month.delete}
             </ConfirmButton>
           </form>
         </div>
@@ -105,14 +111,13 @@ export default async function RunPage({
 
       {locked && (
         <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
-          This month is <strong>closed</strong>. Salaries have been handed out
-          and loan payments applied to employee balances. It is read-only.
+          {t.month.closedBanner}
         </div>
       )}
 
       {run.payslips.length === 0 ? (
         <div className="card p-8 text-center text-slate-500">
-          No active employees existed when this month was opened.
+          {t.month.noEmployees}
         </div>
       ) : (
         (() => {
@@ -121,6 +126,7 @@ export default async function RunPage({
               key={p.id}
               currency={cur}
               locked={locked}
+              t={t.payslip}
               absence={
                 absenceByEmployee.get(p.employeeId) ?? {
                   days: 0,
@@ -154,7 +160,17 @@ export default async function RunPage({
           return locked ? (
             <div className="space-y-4">{editors}</div>
           ) : (
-            <RunForm action={saveDraft} payslipIds={payslipIds} currency={cur}>
+            <RunForm
+              action={saveDraft}
+              payslipIds={payslipIds}
+              currency={cur}
+              labels={{
+                saveDraft: t.month.saveDraft,
+                saving: t.month.saving,
+                draftNote: t.month.draftNote,
+                toastSaved: t.month.toastSaved,
+              }}
+            >
               {editors}
             </RunForm>
           );

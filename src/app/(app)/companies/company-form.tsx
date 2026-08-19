@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Dict } from "@/lib/i18n";
 import { NssfField } from "./nssf-field";
 
 type CompanyValues = {
@@ -14,17 +15,19 @@ export function CompanyForm({
   company,
   submitLabel,
   cancelHref,
+  t,
 }: {
   action: (form: FormData) => void;
   company?: CompanyValues;
   submitLabel: string;
   cancelHref: string;
+  t: Dict;
 }) {
   return (
     <form action={action} className="card space-y-4 p-6">
       <div>
         <label className="label" htmlFor="name">
-          Company name
+          {t.company.name}
         </label>
         <input
           id="name"
@@ -38,7 +41,7 @@ export function CompanyForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="currency">
-            Currency
+            {t.company.currency}
           </label>
           <input
             id="currency"
@@ -51,12 +54,20 @@ export function CompanyForm({
         <NssfField
           mode={company?.nssfMode ?? "percent"}
           value={company?.nssfValue?.toString() ?? "0"}
+          labels={{
+            label: t.company.nssfLabel,
+            percentage: t.company.percentage,
+            fixedAmount: t.company.fixedAmount,
+            helpPercent: t.company.nssfHelpPercent,
+            helpAmount: t.company.nssfHelpAmount,
+            helpTail: t.company.nssfHelpTail,
+          }}
         />
       </div>
 
       <div>
         <label className="label" htmlFor="address">
-          Address (optional)
+          {t.company.address}
         </label>
         <input
           id="address"
@@ -71,7 +82,7 @@ export function CompanyForm({
           {submitLabel}
         </button>
         <Link href={cancelHref} className="btn-secondary">
-          Cancel
+          {t.common.cancel}
         </Link>
       </div>
     </form>

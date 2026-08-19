@@ -1,0 +1,372 @@
+// Bilingual (English / Arabic) dictionary + helpers.
+// Values are plain strings so the dictionary can be passed to client
+// components as serializable props. Interpolate with tf().
+
+export type Locale = "en" | "ar";
+export const LOCALES: Locale[] = ["en", "ar"];
+export const DEFAULT_LOCALE: Locale = "en";
+export const LOCALE_COOKIE = "locale";
+
+export function dir(locale: Locale): "rtl" | "ltr" {
+  return locale === "ar" ? "rtl" : "ltr";
+}
+
+/** Replace {name} placeholders in a template. */
+export function tf(
+  template: string,
+  vars: Record<string, string | number>
+): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) =>
+    k in vars ? String(vars[k]) : `{${k}}`
+  );
+}
+
+const MONTHS_EN = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// Levantine Arabic month names (as used in the source Excel).
+const MONTHS_AR = [
+  "كانون الثاني", "شباط", "آذار", "نيسان", "أيار", "حزيران",
+  "تموز", "آب", "أيلول", "تشرين الأول", "تشرين الثاني", "كانون الأول",
+];
+
+export const dict = {
+  en: {
+    months: MONTHS_EN,
+    common: {
+      appName: "Payroll",
+      cancel: "Cancel",
+      saveChanges: "Save changes",
+      signOut: "Sign out",
+      dangerZone: "Danger zone",
+      edit: "Edit",
+    },
+    login: {
+      subtitle: "Sign in to continue",
+      email: "Email",
+      password: "Password",
+      signIn: "Sign in",
+      signingIn: "Signing in…",
+      errRequired: "Email and password are required.",
+      errInvalid: "Invalid email or password.",
+    },
+    dashboard: {
+      companies: "Companies",
+      subtitle: "Manage payroll for each company separately.",
+      newCompany: "+ New company",
+      none: "No companies yet.",
+      createFirst: "Create your first company",
+      employees: "employees",
+      months: "months",
+    },
+    company: {
+      backToCompanies: "← Companies",
+      editCompany: "Edit company",
+      name: "Company name",
+      currency: "Currency",
+      nssfLabel: "NSSF (الضمان) employee contribution",
+      percentage: "Percentage %",
+      fixedAmount: "Fixed amount",
+      nssfHelpPercent:
+        "A percentage of each employee's base salary (3 = 3%).",
+      nssfHelpAmount: "A fixed money amount deducted per payslip.",
+      nssfHelpTail: "Pre-fills the NSSF deduction on new payslips.",
+      address: "Address (optional)",
+      createCompany: "Create company",
+      newCompany: "New company",
+      deleteDesc:
+        "Deleting a company removes all its employees, months and payslips.",
+      deleteCompany: "Delete company",
+      confirmDelete: "Delete this company and ALL its data?",
+    },
+    employees: {
+      title: "Employees",
+      attendanceDay: "Attendance day",
+      go: "Go",
+      add: "+ Add employee",
+      none: "No employees yet.",
+      colName: "Name",
+      colSalary: "Salary",
+      colStdDays: "Std days",
+      colTransportDay: "Transport/day",
+      colLoan: "Loan balance",
+      colAbsences: "Absences",
+      inactive: "inactive",
+      present: "Present",
+      absent: "Absent",
+      absentPaid: "Absent (paid)",
+      calendar: "Calendar ▾",
+      hide: "Hide ▲",
+      saveLoan: "Save loan balance",
+      attendanceSuffix: "attendance",
+    },
+    monthly: {
+      title: "Monthly payroll",
+      thisMonth: "This month",
+      open: "Open",
+      continueClose: "Continue → close month",
+      viewMonth: "View month",
+      closedHandedOut: "Closed — salaries handed out.",
+      openReview: "Open — review payslips, then close the month.",
+      openingCreates:
+        "Opening the month creates a payslip for every active employee from their salary and this month's attendance. You review, then close it to hand out salaries.",
+      openAnother: "Open another month",
+      noMonths: "No months opened yet.",
+      openBadge: "Open",
+      closedBadge: "Closed",
+      month: "Month",
+      year: "Year",
+      openMonthBtn: "Open month",
+    },
+    attendance: {
+      title: "Attendance (تسجيل حضور يومي)",
+      present: "Present",
+      absent: "Absent",
+      unpaidAbsent: "Unpaid absent",
+      unpaidAmount: "Unpaid amount",
+      ofStd: "of {n} std",
+      perDay: "@ {wage}/day",
+      autoNote:
+        "Days worked and the unpaid-absence deduction are auto-filled from this attendance when you open the month's payroll (and stay editable on the payslip).",
+      legendPresent: "Present",
+      legendUnpaid: "Absent — unpaid",
+      legendPaid: "Absent — paid",
+      clickDay: "Click a day to change it.",
+    },
+    employee: {
+      name: "Name",
+      employeeNo: "Employee no. (رقم المساعد)",
+      baseSalary: "Base salary (الراتب)",
+      stdWorkDays: "Standard work days (أيام العمل الأساسية)",
+      dailyTransport: "Daily transport (بدل نقل يومي)",
+      family: "Family (تعويض عائلي)",
+      loanBalance: "Loan balance (رصيد القرض)",
+      startDate: "Start date (بداية عمل)",
+      dailyWageHelp: "Daily wage = base salary ÷ standard work days.",
+      subscribedNssf: "Subscribed to NSSF (الضمان)",
+      active: "Active",
+      addEmployee: "Add employee",
+      newEmployee: "New employee",
+      deleteDesc: "Deleting an employee removes their payslips and attendance.",
+      deleteEmployee: "Delete employee",
+      confirmDelete: "Delete this employee and all their payslips?",
+    },
+    month: {
+      titleSuffix: "{month} payroll",
+      employees: "employees",
+      totalNet: "Total net",
+      closeMonth: "Close month",
+      confirmClose:
+        "Close this month? Salaries will be handed out (finalized) and loan payments applied to employee balances. The month is then locked.",
+      confirmDelete:
+        "Delete this month's payroll? This removes all its payslips.",
+      delete: "Delete",
+      closedBanner:
+        "This month is closed. Salaries have been handed out and loan payments applied to employee balances. It is read-only.",
+      noEmployees: "No active employees existed when this month was opened.",
+      saveDraft: "Save draft",
+      saving: "Saving…",
+      draftNote:
+        "Edits are saved while the month is open — nothing is locked and loan balances are untouched until you close the month.",
+      toastSaved: "Draft saved — {n} payslips updated.",
+    },
+    payslip: {
+      earnings: "Earnings",
+      deductions: "Deductions",
+      netDue: "Net due (المستحق للدفع)",
+      salary: "Salary (الراتب)",
+      transportComputed: "Transport (بدل نقل) = rate × days",
+      dailyTransport: "Daily transport (بدل نقل يومي)",
+      daysWorked: "Days worked (أيام العمل)",
+      family: "Family (تعويض عائلي)",
+      overtime: "Overtime (عمل اضافي)",
+      salaryAdjPlus: "Salary adj. + (تقديمات تعديل)",
+      otherPlus: "Other + (تقديمات اخرى)",
+      nssf: "NSSF (اشتراك الضمان)",
+      nssfDiff: "NSSF diff. (فرق ضمان)",
+      absence: "Absence (حسومات غياب)",
+      salaryAdjMinus: "Salary adj. − (حسومات تعديل)",
+      purchases: "Purchases (مشتريات)",
+      advance: "Advance (سلفة)",
+      loanPayment: "Loan payment (دفعة قرض)",
+      totalEarnings: "Total earnings",
+      totalDeductions: "Total deductions",
+      loan: "Loan",
+      absentDays: "{n} absent days this month",
+      unpaidParen: " ({n} unpaid)",
+      noAbsences: "no absences this month",
+    },
+  },
+
+  ar: {
+    months: MONTHS_AR,
+    common: {
+      appName: "الرواتب",
+      cancel: "إلغاء",
+      saveChanges: "حفظ التغييرات",
+      signOut: "تسجيل الخروج",
+      dangerZone: "منطقة الخطر",
+      edit: "تعديل",
+    },
+    login: {
+      subtitle: "سجّل الدخول للمتابعة",
+      email: "البريد الإلكتروني",
+      password: "كلمة المرور",
+      signIn: "تسجيل الدخول",
+      signingIn: "جارٍ تسجيل الدخول…",
+      errRequired: "البريد الإلكتروني وكلمة المرور مطلوبان.",
+      errInvalid: "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+    },
+    dashboard: {
+      companies: "الشركات",
+      subtitle: "إدارة رواتب كل شركة على حدة.",
+      newCompany: "+ شركة جديدة",
+      none: "لا توجد شركات بعد.",
+      createFirst: "أنشئ أول شركة",
+      employees: "موظفين",
+      months: "أشهر",
+    },
+    company: {
+      backToCompanies: "→ الشركات",
+      editCompany: "تعديل الشركة",
+      name: "اسم الشركة",
+      currency: "العملة",
+      nssfLabel: "اشتراك الموظف في الضمان",
+      percentage: "نسبة مئوية %",
+      fixedAmount: "مبلغ ثابت",
+      nssfHelpPercent: "نسبة من الراتب الأساسي لكل موظف (3 = 3٪).",
+      nssfHelpAmount: "مبلغ ثابت يُحسم من كل قسيمة راتب.",
+      nssfHelpTail: "يُعبّأ مسبقًا حسم الضمان في القسائم الجديدة.",
+      address: "العنوان (اختياري)",
+      createCompany: "إنشاء الشركة",
+      newCompany: "شركة جديدة",
+      deleteDesc: "حذف الشركة يزيل كل موظفيها وأشهرها وقسائمها.",
+      deleteCompany: "حذف الشركة",
+      confirmDelete: "حذف هذه الشركة وكل بياناتها؟",
+    },
+    employees: {
+      title: "الموظفون",
+      attendanceDay: "يوم الحضور",
+      go: "انتقال",
+      add: "+ إضافة موظف",
+      none: "لا يوجد موظفون بعد.",
+      colName: "الاسم",
+      colSalary: "الراتب",
+      colStdDays: "أيام العمل",
+      colTransportDay: "بدل نقل/يوم",
+      colLoan: "رصيد القرض",
+      colAbsences: "الغياب",
+      inactive: "غير نشط",
+      present: "حاضر",
+      absent: "غائب",
+      absentPaid: "غائب (مدفوع)",
+      calendar: "التقويم ▾",
+      hide: "إخفاء ▲",
+      saveLoan: "حفظ رصيد القرض",
+      attendanceSuffix: "الحضور",
+    },
+    monthly: {
+      title: "الرواتب الشهرية",
+      thisMonth: "هذا الشهر",
+      open: "فتح",
+      continueClose: "متابعة ← إغلاق الشهر",
+      viewMonth: "عرض الشهر",
+      closedHandedOut: "مُغلق — تم تسليم الرواتب.",
+      openReview: "مفتوح — راجع القسائم ثم أغلق الشهر.",
+      openingCreates:
+        "فتح الشهر يُنشئ قسيمة راتب لكل موظف نشط من راتبه وحضوره هذا الشهر. تراجعها ثم تغلقها لتسليم الرواتب.",
+      openAnother: "فتح شهر آخر",
+      noMonths: "لم يُفتح أي شهر بعد.",
+      openBadge: "مفتوح",
+      closedBadge: "مُغلق",
+      month: "الشهر",
+      year: "السنة",
+      openMonthBtn: "فتح الشهر",
+    },
+    attendance: {
+      title: "تسجيل الحضور اليومي",
+      present: "حاضر",
+      absent: "غائب",
+      unpaidAbsent: "غياب غير مدفوع",
+      unpaidAmount: "مبلغ غير مدفوع",
+      ofStd: "من {n} أساسية",
+      perDay: "بسعر {wage}/يوم",
+      autoNote:
+        "أيام العمل وحسم الغياب غير المدفوع تُعبّأ تلقائيًا من هذا الحضور عند فتح شهر الرواتب (وتبقى قابلة للتعديل في القسيمة).",
+      legendPresent: "حاضر",
+      legendUnpaid: "غائب — غير مدفوع",
+      legendPaid: "غائب — مدفوع",
+      clickDay: "انقر على يوم لتغييره.",
+    },
+    employee: {
+      name: "الاسم",
+      employeeNo: "رقم الموظف (رقم المساعد)",
+      baseSalary: "الراتب الأساسي",
+      stdWorkDays: "أيام العمل الأساسية",
+      dailyTransport: "بدل النقل اليومي",
+      family: "التعويض العائلي",
+      loanBalance: "رصيد القرض",
+      startDate: "تاريخ المباشرة",
+      dailyWageHelp: "أجر اليوم = الراتب الأساسي ÷ أيام العمل الأساسية.",
+      subscribedNssf: "مشترك في الضمان",
+      active: "نشط",
+      addEmployee: "إضافة موظف",
+      newEmployee: "موظف جديد",
+      deleteDesc: "حذف الموظف يزيل قسائمه وحضوره.",
+      deleteEmployee: "حذف الموظف",
+      confirmDelete: "حذف هذا الموظف وكل قسائمه؟",
+    },
+    month: {
+      titleSuffix: "رواتب {month}",
+      employees: "موظفين",
+      totalNet: "إجمالي الصافي",
+      closeMonth: "إغلاق الشهر",
+      confirmClose:
+        "إغلاق هذا الشهر؟ سيتم تسليم الرواتب نهائيًا وتطبيق دفعات القروض على أرصدة الموظفين، ثم يُقفل الشهر.",
+      confirmDelete: "حذف رواتب هذا الشهر؟ سيزيل كل القسائم.",
+      delete: "حذف",
+      closedBanner:
+        "هذا الشهر مُغلق. تم تسليم الرواتب وتطبيق دفعات القروض على أرصدة الموظفين. للقراءة فقط.",
+      noEmployees: "لم يكن هناك موظفون نشطون عند فتح هذا الشهر.",
+      saveDraft: "حفظ المسودة",
+      saving: "جارٍ الحفظ…",
+      draftNote:
+        "تُحفظ التعديلات طالما الشهر مفتوح — لا شيء مقفل وأرصدة القروض لا تتغيّر حتى تغلق الشهر.",
+      toastSaved: "تم حفظ المسودة — تم تحديث {n} قسيمة.",
+    },
+    payslip: {
+      earnings: "المستحقات",
+      deductions: "الحسومات",
+      netDue: "المستحق للدفع",
+      salary: "الراتب",
+      transportComputed: "بدل النقل = السعر × الأيام",
+      dailyTransport: "بدل نقل يومي",
+      daysWorked: "أيام العمل",
+      family: "التعويض العائلي",
+      overtime: "عمل إضافي",
+      salaryAdjPlus: "تعديل راتب +",
+      otherPlus: "إضافات أخرى",
+      nssf: "اشتراك الضمان",
+      nssfDiff: "فرق ضمان",
+      absence: "حسم الغياب",
+      salaryAdjMinus: "تعديل راتب −",
+      purchases: "مشتريات",
+      advance: "سلفة",
+      loanPayment: "دفعة قرض",
+      totalEarnings: "إجمالي المستحقات",
+      totalDeductions: "إجمالي الحسومات",
+      loan: "القرض",
+      absentDays: "{n} أيام غياب هذا الشهر",
+      unpaidParen: " ({n} غير مدفوع)",
+      noAbsences: "لا غياب هذا الشهر",
+    },
+  },
+};
+
+export type Dict = (typeof dict)["en"];
+
+export function formatMonth(t: Dict, month: number, year: number): string {
+  return `${t.months[month - 1] ?? month} ${year}`;
+}

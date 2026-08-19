@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { getT } from "@/lib/i18n.server";
 import { logout } from "../login/actions";
+import { LanguageToggle } from "./components/language-toggle";
 
 export default async function AppLayout({
   children,
@@ -8,6 +10,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+  const { t } = await getT();
 
   return (
     <div className="min-h-screen">
@@ -17,13 +20,16 @@ export default async function AppLayout({
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
               ₱
             </span>
-            Payroll
+            {t.common.appName}
           </Link>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-slate-500">{user.email}</span>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="hidden text-slate-500 sm:inline">
+              {user.email}
+            </span>
+            <LanguageToggle />
             <form action={logout}>
               <button className="btn-secondary py-1.5" type="submit">
-                Sign out
+                {t.common.signOut}
               </button>
             </form>
           </div>

@@ -2,16 +2,24 @@
 
 import { useState } from "react";
 import { createRun } from "@/lib/actions";
-import { MONTHS } from "@/lib/payroll";
 
 export function NewRunForm({
   companyId,
   defaultMonth,
   defaultYear,
+  labels,
 }: {
   companyId: string;
   defaultMonth?: number;
   defaultYear?: number;
+  labels: {
+    openAnother: string;
+    month: string;
+    year: string;
+    openMonthBtn: string;
+    cancel: string;
+    months: readonly string[];
+  };
 }) {
   const now = new Date();
   const month = defaultMonth ?? now.getMonth() + 1;
@@ -22,7 +30,7 @@ export function NewRunForm({
   if (!open) {
     return (
       <button className="btn-secondary" onClick={() => setOpen(true)}>
-        Open another month
+        {labels.openAnother}
       </button>
     );
   }
@@ -31,10 +39,10 @@ export function NewRunForm({
     <form action={action} className="flex items-end gap-2">
       <div>
         <label className="label" htmlFor="month">
-          Month
+          {labels.month}
         </label>
         <select id="month" name="month" className="input" defaultValue={month}>
-          {MONTHS.map((m, i) => (
+          {labels.months.map((m, i) => (
             <option key={m} value={i + 1}>
               {m}
             </option>
@@ -43,7 +51,7 @@ export function NewRunForm({
       </div>
       <div>
         <label className="label" htmlFor="year">
-          Year
+          {labels.year}
         </label>
         <input
           id="year"
@@ -54,14 +62,14 @@ export function NewRunForm({
         />
       </div>
       <button type="submit" className="btn-primary">
-        Open month
+        {labels.openMonthBtn}
       </button>
       <button
         type="button"
         className="btn-secondary"
         onClick={() => setOpen(false)}
       >
-        Cancel
+        {labels.cancel}
       </button>
     </form>
   );

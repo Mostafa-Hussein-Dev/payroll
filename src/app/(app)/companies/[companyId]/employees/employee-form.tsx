@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Dict } from "@/lib/i18n";
 
 type EmployeeValues = {
   name?: string;
@@ -24,19 +25,22 @@ export function EmployeeForm({
   submitLabel,
   cancelHref,
   showActive = false,
+  t,
 }: {
   action: (form: FormData) => void;
   employee?: EmployeeValues;
   submitLabel: string;
   cancelHref: string;
   showActive?: boolean;
+  t: Dict;
 }) {
+  const e = t.employee;
   return (
     <form action={action} className="card space-y-4 p-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="name">
-            Name
+            {e.name}
           </label>
           <input
             id="name"
@@ -48,7 +52,7 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="label" htmlFor="employeeNo">
-            Employee no. (رقم المساعد)
+            {e.employeeNo}
           </label>
           <input
             id="employeeNo"
@@ -62,7 +66,7 @@ export function EmployeeForm({
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <label className="label" htmlFor="baseSalary">
-            Base salary (الراتب)
+            {e.baseSalary}
           </label>
           <input
             id="baseSalary"
@@ -75,7 +79,7 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="label" htmlFor="dailyTransportRate">
-            Daily transport (بدل نقل يومي)
+            {e.dailyTransport}
           </label>
           <input
             id="dailyTransportRate"
@@ -88,7 +92,7 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="label" htmlFor="familyAllowance">
-            Family (تعويض عائلي)
+            {e.family}
           </label>
           <input
             id="familyAllowance"
@@ -101,7 +105,7 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="label" htmlFor="standardWorkDays">
-            Standard work days (أيام العمل الأساسية)
+            {e.stdWorkDays}
           </label>
           <input
             id="standardWorkDays"
@@ -112,16 +116,14 @@ export function EmployeeForm({
             className="input"
             defaultValue={employee?.standardWorkDays?.toString() ?? "30"}
           />
-          <p className="mt-1 text-xs text-slate-400">
-            Daily wage = base salary ÷ standard work days.
-          </p>
+          <p className="mt-1 text-xs text-slate-400">{e.dailyWageHelp}</p>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="loanBalance">
-            Loan balance (رصيد القرض)
+            {e.loanBalance}
           </label>
           <input
             id="loanBalance"
@@ -134,7 +136,7 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="label" htmlFor="startDate">
-            Start date (بداية عمل)
+            {e.startDate}
           </label>
           <input
             id="startDate"
@@ -154,7 +156,7 @@ export function EmployeeForm({
             defaultChecked={employee?.nssfSubscribed ?? true}
             className="h-4 w-4"
           />
-          Subscribed to NSSF (الضمان)
+          {e.subscribedNssf}
         </label>
         {showActive && (
           <label className="flex items-center gap-2 text-sm">
@@ -164,7 +166,7 @@ export function EmployeeForm({
               defaultChecked={employee?.active ?? true}
               className="h-4 w-4"
             />
-            Active
+            {e.active}
           </label>
         )}
       </div>
@@ -174,7 +176,7 @@ export function EmployeeForm({
           {submitLabel}
         </button>
         <Link href={cancelHref} className="btn-secondary">
-          Cancel
+          {t.common.cancel}
         </Link>
       </div>
     </form>

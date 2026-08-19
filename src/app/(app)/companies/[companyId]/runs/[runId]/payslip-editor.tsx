@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { num } from "@/lib/format";
+import { Dict, tf } from "@/lib/i18n";
+
+type T = Dict["payslip"];
 
 type PayslipData = {
   id: string;
@@ -25,30 +28,31 @@ type PayslipData = {
   netPay: number;
 };
 
+type FieldKey = keyof PayslipData;
+
 // Earnings other than transport (transport is derived from rate × days).
-const EARNINGS: { key: keyof PayslipData; label: string }[] = [
-  { key: "baseSalary", label: "Salary (الراتب)" },
-  { key: "familyAllowance", label: "Family (تعويض عائلي)" },
-  { key: "overtime", label: "Overtime (عمل اضافي)" },
-  { key: "salaryAdjAddition", label: "Salary adj. + (تقديمات تعديل)" },
-  { key: "otherAdditions", label: "Other + (تقديمات اخرى)" },
+const EARNING_KEYS: FieldKey[] = [
+  "baseSalary",
+  "familyAllowance",
+  "overtime",
+  "salaryAdjAddition",
+  "otherAdditions",
+];
+const DEDUCTION_KEYS: FieldKey[] = [
+  "nssfDeduction",
+  "nssfDifference",
+  "absenceDeduction",
+  "salaryAdjDeduction",
+  "purchases",
+  "advance",
+  "loanPayment",
 ];
 
-const DEDUCTIONS: { key: keyof PayslipData; label: string }[] = [
-  { key: "nssfDeduction", label: "NSSF (اشتراك الضمان)" },
-  { key: "nssfDifference", label: "NSSF diff. (فرق ضمان)" },
-  { key: "absenceDeduction", label: "Absence (حسومات غياب)" },
-  { key: "salaryAdjDeduction", label: "Salary adj. − (حسومات تعديل)" },
-  { key: "purchases", label: "Purchases (مشتريات)" },
-  { key: "advance", label: "Advance (سلفة)" },
-  { key: "loanPayment", label: "Loan payment (دفعة قرض)" },
-];
-
-const NUMERIC_KEYS: (keyof PayslipData)[] = [
-  ...EARNINGS.map((f) => f.key),
+const NUMERIC_KEYS: FieldKey[] = [
+  ...EARNING_KEYS,
   "dailyTransportRate",
   "daysWorked",
-  ...DEDUCTIONS.map((f) => f.key),
+  ...DEDUCTION_KEYS,
 ];
 
 function round2(n: number) {
@@ -60,12 +64,29 @@ export function PayslipEditor({
   locked,
   absence,
   payslip,
+  t,
 }: {
   currency: string;
   locked: boolean;
   absence: { days: number; unpaidDays: number };
   payslip: PayslipData;
+  t: T;
 }) {
+  const labelFor: Record<string, string> = {
+    baseSalary: t.salary,
+    familyAllowance: t.family,
+    overtime: t.overtime,
+    salaryAdjAddition: t.salaryAdjPlus,
+    otherAdditions: t.otherPlus,
+    nssfDeduction: t.nssf,
+    nssfDifference: t.nssfDiff,
+    absenceDeduction: t.absence,
+    salaryAdjDeduction: t.salaryAdjMinus,
+    purchases: t.purchases,
+    advance: t.advance,
+    loanPayment: t.loanPayment,
+  };
+
   const initial = useMemo(() => {
     const o: Record<string, number> = {};
     for (const k of NUMERIC_KEYS) o[k] = payslip[k] as number;
@@ -81,11 +102,8 @@ export function PayslipEditor({
     (vals.dailyTransportRate || 0) * (vals.daysWorked || 0)
   );
   const totalEarnings =
-    EARNINGS.reduce((s, f) => s + (vals[f.key] || 0), 0) + transport;
-  const totalDeductions = DEDUCTIONS.reduce(
-    (s, f) => s + (vals[f.key] || 0),
-    0
-  );
+    EARNING_KEYS.reduce((s, k) => s + (vals[k] || 0), 0) + transport;
+  const totalDeductions = DEDUCTION_KEYS.reduce((s, k) => s + (vals[k] || 0), 0);
   const net = totalEarnings - totalDeductions;
   const loanRemaining = payslip.loanBalanceBefore - (vals.loanPayment || 0);
 
@@ -95,22 +113,21 @@ export function PayslipEditor({
         <div>
           <h3 className="text-lg font-semibold">{payslip.employeeName}</h3>
           <p className="text-xs text-slate-400">
-            {payslip.employeeNo ? `No. ${payslip.employeeNo} · ` : ""}
+            {payslip.employeeNo ? `#${payslip.employeeNo} · ` : ""}
             {absence.days > 0 ? (
               <span className="text-amber-600">
-                {absence.days} absent day{absence.days === 1 ? "" : "s"} this
-                month
+                {tf(t.absentDays, { n: absence.days })}
                 {absence.unpaidDays > 0
-                  ? ` (${absence.unpaidDays} unpaid)`
+                  ? tf(t.unpaidParen, { n: absence.unpaidDays })
                   : ""}
               </span>
             ) : (
-              "no absences this month"
+              t.noAbsences
             )}
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-xs text-slate-500">Net due (المستحق للدفع)</div>
+        <div className="text-end">
+          <div className="text-xs text-slate-500">{t.netDue}</div>
           <div className="text-xl font-bold text-brand-700">
             {num(net)} {currency}
           </div>
@@ -126,12 +143,12 @@ export function PayslipEditor({
       <div className="grid gap-6 md:grid-cols-2">
         <div>
           <h4 className="mb-2 text-sm font-semibold text-green-700">
-            Earnings
+            {t.earnings}
           </h4>
           <div className="space-y-2">
             <Field
               name={`${prefix}baseSalary`}
-              label="Salary (الراتب)"
+              label={t.salary}
               value={vals.baseSalary}
               locked={locked}
               onChange={set("baseSalary")}
@@ -140,61 +157,61 @@ export function PayslipEditor({
             {/* Transport = daily rate × days worked */}
             <Field
               name={`${prefix}dailyTransportRate`}
-              label="Daily transport (بدل نقل يومي)"
+              label={t.dailyTransport}
               value={vals.dailyTransportRate}
               locked={locked}
               onChange={set("dailyTransportRate")}
             />
             <Field
               name={`${prefix}daysWorked`}
-              label="Days worked (أيام العمل)"
+              label={t.daysWorked}
               value={vals.daysWorked}
               locked={locked}
               onChange={set("daysWorked")}
             />
             <div className="flex items-center justify-between gap-3 rounded-md bg-green-50 px-2 py-1 text-sm">
-              <span className="text-slate-600">
-                Transport (بدل نقل) = rate × days
-              </span>
+              <span className="text-slate-600">{t.transportComputed}</span>
               <span className="font-medium">
                 {num(transport)} {currency}
               </span>
             </div>
 
-            {EARNINGS.filter((f) => f.key !== "baseSalary").map((f) => (
+            {EARNING_KEYS.filter((k) => k !== "baseSalary").map((k) => (
               <Field
-                key={f.key}
-                name={`${prefix}${f.key}`}
-                label={f.label}
-                value={vals[f.key]}
+                key={k}
+                name={`${prefix}${k}`}
+                label={labelFor[k]}
+                value={vals[k]}
                 locked={locked}
-                onChange={set(f.key)}
+                onChange={set(k)}
               />
             ))}
           </div>
           <Total
-            label="Total earnings"
+            label={t.totalEarnings}
             value={totalEarnings}
             currency={currency}
           />
         </div>
 
         <div>
-          <h4 className="mb-2 text-sm font-semibold text-red-700">Deductions</h4>
+          <h4 className="mb-2 text-sm font-semibold text-red-700">
+            {t.deductions}
+          </h4>
           <div className="space-y-2">
-            {DEDUCTIONS.map((f) => (
+            {DEDUCTION_KEYS.map((k) => (
               <Field
-                key={f.key}
-                name={`${prefix}${f.key}`}
-                label={f.label}
-                value={vals[f.key]}
+                key={k}
+                name={`${prefix}${k}`}
+                label={labelFor[k]}
+                value={vals[k]}
                 locked={locked}
-                onChange={set(f.key)}
+                onChange={set(k)}
               />
             ))}
           </div>
           <Total
-            label="Total deductions"
+            label={t.totalDeductions}
             value={totalDeductions}
             currency={currency}
           />
@@ -202,7 +219,8 @@ export function PayslipEditor({
       </div>
 
       <div className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-500">
-        Loan: {num(payslip.loanBalanceBefore)} → {num(loanRemaining)} {currency}
+        {t.loan}: {num(payslip.loanBalanceBefore)} → {num(loanRemaining)}{" "}
+        {currency}
       </div>
     </div>
   );
@@ -231,7 +249,7 @@ function Field({
         defaultValue={value}
         readOnly={locked}
         onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-        className="input w-32 text-right read-only:bg-slate-50"
+        className="input w-32 text-end read-only:bg-slate-50"
       />
     </label>
   );

@@ -4,14 +4,10 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { setAttendance, setLoanBalance, createRun } from "@/lib/actions";
 import { money, num } from "@/lib/format";
-import { absenceDays, monthLabel } from "@/lib/payroll";
-import {
-  DayState,
-  NEXT_STATE,
-  STATE_CELL,
-  STATE_LABEL,
-  pad2,
-} from "@/lib/attendance";
+import { absenceDays } from "@/lib/payroll";
+import { formatMonth } from "@/lib/i18n";
+import { getT } from "@/lib/i18n.server";
+import { DayState, NEXT_STATE, STATE_CELL, pad2 } from "@/lib/attendance";
 import { NewRunForm } from "./new-run-form";
 import { AttendanceCalendar } from "./employees/[employeeId]/attendance-calendar";
 
@@ -24,6 +20,8 @@ export default async function CompanyPage({
 }) {
   const { companyId } = await params;
   const { d, open } = await searchParams;
+  const { t, locale } = await getT();
+  const backArrow = locale === "ar" ? "→" : "←";
 
   const company = await prisma.company.findUnique({
     where: { id: companyId },
@@ -74,12 +72,25 @@ export default async function CompanyPage({
   };
   const currentUrl = urlWith(open);
 
+  const calLabels = {
+    present: t.attendance.legendPresent,
+    unpaid: t.attendance.legendUnpaid,
+    paid: t.attendance.legendPaid,
+    clickDay: t.attendance.clickDay,
+  };
+  const dayLabel = (s: DayState) =>
+    s === "present"
+      ? t.employees.present
+      : s === "unpaid"
+        ? t.employees.absent
+        : t.employees.absentPaid;
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link href="/" className="text-sm text-slate-500 hover:underline">
-            ← Companies
+            {backArrow} {t.dashboard.companies}
           </Link>
           <h1 className="mt-1 text-2xl font-semibold">{company.name}</h1>
           <p className="text-sm text-slate-500">
@@ -91,7 +102,7 @@ export default async function CompanyPage({
           </p>
         </div>
         <Link href={`/companies/${company.id}/edit`} className="btn-secondary">
-          Edit company
+          {t.company.editCompany}
         </Link>
       </div>
 
@@ -99,7 +110,7 @@ export default async function CompanyPage({
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">
-            Employees{" "}
+            {t.employees.title}{" "}
             <span className="text-slate-400">({company.employees.length})</span>
           </h2>
           <div className="flex items-center gap-3">
@@ -107,7 +118,7 @@ export default async function CompanyPage({
             <form method="get" className="flex items-center gap-2 text-sm">
               {open && <input type="hidden" name="open" value={open} />}
               <label className="text-slate-500" htmlFor="d">
-                Attendance day
+                {t.employees.attendanceDay}
               </label>
               <input
                 id="d"
@@ -117,40 +128,47 @@ export default async function CompanyPage({
                 className="input py-1.5"
               />
               <button className="btn-secondary py-1.5" type="submit">
-                Go
+                {t.employees.go}
               </button>
             </form>
             <Link
               href={`/companies/${company.id}/employees/new`}
               className="btn-primary"
             >
-              + Add employee
+              {t.employees.add}
             </Link>
           </div>
         </div>
 
         {company.employees.length === 0 ? (
           <div className="card p-8 text-center text-slate-500">
-            No employees yet.
+            {t.employees.none}
           </div>
         ) : (
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 text-left text-slate-500">
+              <thead className="border-b border-slate-200 text-start text-slate-500">
                 <tr>
-                  <th className="px-3 py-3 font-medium">Name</th>
-                  <th className="px-3 py-3 text-right font-medium">Salary</th>
-                  <th className="px-3 py-3 text-right font-medium">Std days</th>
-                  <th className="px-3 py-3 text-right font-medium">
-                    Transport/day
+                  <th className="px-3 py-3 text-start font-medium">
+                    {t.employees.colName}
                   </th>
-                  <th className="px-3 py-3 font-medium">Loan balance</th>
-                  <th className="px-3 py-3 text-right font-medium">
-                    Absences ({monthLabel(selMonth, selYear)})
+                  <th className="px-3 py-3 text-end font-medium">
+                    {t.employees.colSalary}
                   </th>
-                  <th className="px-3 py-3 text-center font-medium">
-                    {selStr}
+                  <th className="px-3 py-3 text-end font-medium">
+                    {t.employees.colStdDays}
                   </th>
+                  <th className="px-3 py-3 text-end font-medium">
+                    {t.employees.colTransportDay}
+                  </th>
+                  <th className="px-3 py-3 text-start font-medium">
+                    {t.employees.colLoan}
+                  </th>
+                  <th className="px-3 py-3 text-end font-medium">
+                    {t.employees.colAbsences} (
+                    {formatMonth(t, selMonth, selYear)})
+                  </th>
+                  <th className="px-3 py-3 text-center font-medium">{selStr}</th>
                   <th className="px-3 py-3"></th>
                 </tr>
               </thead>
@@ -184,22 +202,22 @@ export default async function CompanyPage({
                           </Link>
                           {e.employeeNo && (
                             <div className="text-xs text-slate-400">
-                              No. {e.employeeNo}
+                              #{e.employeeNo}
                             </div>
                           )}
                           {!e.active && (
                             <div className="text-xs text-slate-400">
-                              inactive
+                              {t.employees.inactive}
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-end">
                           {money(Number(e.baseSalary), cur)}
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-end">
                           {e.standardWorkDays}
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-end">
                           {money(Number(e.dailyTransportRate), cur)}
                         </td>
                         <td className="px-3 py-2">
@@ -217,18 +235,18 @@ export default async function CompanyPage({
                               type="number"
                               step="0.01"
                               defaultValue={Number(e.loanBalance)}
-                              className="input w-24 py-1 text-right"
+                              className="input w-24 py-1 text-end"
                             />
                             <button
                               type="submit"
-                              title="Save loan balance"
+                              title={t.employees.saveLoan}
                               className="btn-secondary px-2 py-1"
                             >
                               ✓
                             </button>
                           </form>
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-end">
                           {absentCount > 0 ? (
                             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
                               {num(absentCount)}
@@ -252,23 +270,19 @@ export default async function CompanyPage({
                             />
                             <button
                               type="submit"
-                              title={STATE_LABEL[dayState]}
+                              title={dayLabel(dayState)}
                               className={`w-24 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium transition-colors ${STATE_CELL[dayState]}`}
                             >
-                              {dayState === "present"
-                                ? "Present"
-                                : dayState === "unpaid"
-                                  ? "Absent"
-                                  : "Absent (paid)"}
+                              {dayLabel(dayState)}
                             </button>
                           </form>
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-end">
                           <Link
                             href={isOpen ? urlWith() : urlWith(e.id)}
                             className="text-sm text-slate-500 hover:underline"
                           >
-                            {isOpen ? "Hide ▲" : "Calendar ▾"}
+                            {isOpen ? t.employees.hide : t.employees.calendar}
                           </Link>
                         </td>
                       </tr>
@@ -276,8 +290,8 @@ export default async function CompanyPage({
                         <tr className="bg-slate-50/60">
                           <td colSpan={8} className="px-4 py-4">
                             <div className="mb-2 text-sm font-medium">
-                              {e.name} — {monthLabel(selMonth, selYear)}{" "}
-                              attendance
+                              {e.name} — {formatMonth(t, selMonth, selYear)}{" "}
+                              {t.employees.attendanceSuffix}
                             </div>
                             <AttendanceCalendar
                               companyId={companyId}
@@ -286,6 +300,7 @@ export default async function CompanyPage({
                               month={selMonth}
                               states={monthStates}
                               returnTo={currentUrl}
+                              labels={calLabels}
                             />
                           </td>
                         </tr>
@@ -302,11 +317,19 @@ export default async function CompanyPage({
       {/* Monthly payroll — open the month, work it, then close it */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Monthly payroll</h2>
+          <h2 className="text-lg font-semibold">{t.monthly.title}</h2>
           <NewRunForm
             companyId={company.id}
             defaultMonth={curMonth}
             defaultYear={curYear}
+            labels={{
+              openAnother: t.monthly.openAnother,
+              month: t.monthly.month,
+              year: t.monthly.year,
+              openMonthBtn: t.monthly.openMonthBtn,
+              cancel: t.common.cancel,
+              months: t.months,
+            }}
           />
         </div>
 
@@ -314,28 +337,26 @@ export default async function CompanyPage({
         <div className="card mb-4 flex flex-wrap items-center justify-between gap-4 border-brand-100 bg-brand-50/40 p-5">
           <div>
             <div className="text-xs uppercase tracking-wide text-brand-700">
-              This month
+              {t.monthly.thisMonth}
             </div>
             <div className="text-xl font-semibold">
-              {monthLabel(curMonth, curYear)}
+              {formatMonth(t, curMonth, curYear)}
             </div>
             {currentRun ? (
               <p className="mt-1 text-sm text-slate-500">
                 {currentRun.status === "finalized" ? (
                   <span className="text-green-700">
-                    Closed — salaries handed out.
+                    {t.monthly.closedHandedOut}
                   </span>
                 ) : (
                   <span className="text-amber-700">
-                    Open — review payslips, then close the month.
+                    {t.monthly.openReview}
                   </span>
                 )}
               </p>
             ) : (
               <p className="mt-1 max-w-md text-sm text-slate-500">
-                Opening the month creates a payslip for every active employee
-                from their salary and this month&apos;s attendance. You review,
-                then close it to hand out salaries.
+                {t.monthly.openingCreates}
               </p>
             )}
           </div>
@@ -345,15 +366,15 @@ export default async function CompanyPage({
               className="btn-primary"
             >
               {currentRun.status === "finalized"
-                ? "View month"
-                : "Continue → close month"}
+                ? t.monthly.viewMonth
+                : t.monthly.continueClose}
             </Link>
           ) : (
             <form action={createRun.bind(null, company.id)}>
               <input type="hidden" name="month" value={curMonth} />
               <input type="hidden" name="year" value={curYear} />
               <button type="submit" className="btn-primary">
-                Open {monthLabel(curMonth, curYear)}
+                {t.monthly.open} {formatMonth(t, curMonth, curYear)}
               </button>
             </form>
           )}
@@ -362,7 +383,7 @@ export default async function CompanyPage({
         {/* All months */}
         {company.payrollRuns.length === 0 ? (
           <div className="card p-6 text-center text-sm text-slate-500">
-            No months opened yet.
+            {t.monthly.noMonths}
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -373,7 +394,7 @@ export default async function CompanyPage({
                 className="card flex items-center justify-between p-4 hover:shadow-md"
               >
                 <span className="font-medium">
-                  {monthLabel(r.month, r.year)}
+                  {formatMonth(t, r.month, r.year)}
                 </span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs ${
@@ -382,7 +403,9 @@ export default async function CompanyPage({
                       : "bg-amber-100 text-amber-700"
                   }`}
                 >
-                  {r.status === "finalized" ? "Closed" : "Open"}
+                  {r.status === "finalized"
+                    ? t.monthly.closedBadge
+                    : t.monthly.openBadge}
                 </span>
               </Link>
             ))}

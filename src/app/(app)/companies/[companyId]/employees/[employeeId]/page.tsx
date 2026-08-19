@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { updateEmployee, deleteEmployee } from "@/lib/actions";
-import { absenceDays, dailyWage, monthLabel } from "@/lib/payroll";
+import { absenceDays, dailyWage } from "@/lib/payroll";
+import { formatMonth, tf } from "@/lib/i18n";
+import { getT } from "@/lib/i18n.server";
 import { money, num } from "@/lib/format";
 import { EmployeeForm } from "../employee-form";
 import { ConfirmButton } from "@/app/(app)/components/confirm-button";
@@ -21,6 +23,8 @@ export default async function EditEmployeePage({
 }) {
   const { companyId, employeeId } = await params;
   const { m } = await searchParams;
+  const { t, locale } = await getT();
+  const backArrow = locale === "ar" ? "→" : "←";
 
   const employee = await prisma.employee.findFirst({
     where: { id: employeeId, companyId },
@@ -72,7 +76,7 @@ export default async function EditEmployeePage({
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <Link href={`/companies/${companyId}`} className="text-sm text-slate-500 hover:underline">
-          ← {employee.company.name}
+          {backArrow} {employee.company.name}
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">{employee.name}</h1>
       </div>
@@ -91,39 +95,46 @@ export default async function EditEmployeePage({
           active: employee.active,
           startDate: employee.startDate,
         }}
-        submitLabel="Save changes"
+        submitLabel={t.common.saveChanges}
         cancelHref={`/companies/${companyId}`}
         showActive
+        t={t}
       />
 
-      {/* Daily attendance (تسجيل حضور يومي) */}
+      {/* Daily attendance */}
       <div className="card p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">
-            Attendance (تسجيل حضور يومي)
-          </h2>
+          <h2 className="text-lg font-semibold">{t.attendance.title}</h2>
           <div className="flex items-center gap-2 text-sm">
             <Link href={`${base}?m=${prevYm}`} className="btn-secondary py-1">
-              ←
+              ‹
             </Link>
             <span className="min-w-[7.5rem] text-center font-medium">
-              {monthLabel(month, year)}
+              {formatMonth(t, month, year)}
             </span>
             <Link href={`${base}?m=${nextYm}`} className="btn-secondary py-1">
-              →
+              ›
             </Link>
           </div>
         </div>
 
         {/* Summary */}
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Present" value={`${num(presentDays)}`} sub={`of ${employee.standardWorkDays} std`} />
-          <Stat label="Absent" value={`${num(absentDays)}`} tone="amber" />
-          <Stat label="Unpaid absent" value={`${num(unpaidDays)}`} tone="red" />
           <Stat
-            label="Unpaid amount"
+            label={t.attendance.present}
+            value={num(presentDays)}
+            sub={tf(t.attendance.ofStd, { n: employee.standardWorkDays })}
+          />
+          <Stat label={t.attendance.absent} value={num(absentDays)} tone="amber" />
+          <Stat
+            label={t.attendance.unpaidAbsent}
+            value={num(unpaidDays)}
+            tone="red"
+          />
+          <Stat
+            label={t.attendance.unpaidAmount}
             value={money(unpaidAmount, cur)}
-            sub={`@ ${money(wage, cur)}/day`}
+            sub={tf(t.attendance.perDay, { wage: money(wage, cur) })}
             tone="red"
           />
         </div>
@@ -135,26 +146,26 @@ export default async function EditEmployeePage({
           month={month}
           states={states}
           returnTo={returnTo}
+          labels={{
+            present: t.attendance.legendPresent,
+            unpaid: t.attendance.legendUnpaid,
+            paid: t.attendance.legendPaid,
+            clickDay: t.attendance.clickDay,
+          }}
         />
 
-        <p className="mt-4 text-xs text-slate-400">
-          Days worked and the unpaid-absence deduction are auto-filled from this
-          attendance when you create the month&apos;s payroll run (and stay
-          editable on the payslip).
-        </p>
+        <p className="mt-4 text-xs text-slate-400">{t.attendance.autoNote}</p>
       </div>
 
       <div className="card border-red-100 p-6">
-        <h2 className="font-medium text-red-600">Danger zone</h2>
-        <p className="mb-3 mt-1 text-sm text-slate-500">
-          Deleting an employee removes their payslips and attendance.
-        </p>
+        <h2 className="font-medium text-red-600">{t.common.dangerZone}</h2>
+        <p className="mb-3 mt-1 text-sm text-slate-500">{t.employee.deleteDesc}</p>
         <form action={remove}>
           <ConfirmButton
             className="btn-danger"
-            confirm="Delete this employee and all their payslips?"
+            confirm={t.employee.confirmDelete}
           >
-            Delete employee
+            {t.employee.deleteEmployee}
           </ConfirmButton>
         </form>
       </div>

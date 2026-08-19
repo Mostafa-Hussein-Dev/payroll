@@ -5,16 +5,25 @@ import { useState } from "react";
 export function NssfField({
   mode,
   value,
+  labels,
 }: {
   mode: string;
   value: string;
+  labels: {
+    label: string;
+    percentage: string;
+    fixedAmount: string;
+    helpPercent: string;
+    helpAmount: string;
+    helpTail: string;
+  };
 }) {
   const [m, setM] = useState(mode === "amount" ? "amount" : "percent");
 
   return (
     <div>
       <label className="label" htmlFor="nssfValue">
-        NSSF (الضمان) employee contribution
+        {labels.label}
       </label>
       <div className="flex gap-2">
         <select
@@ -23,8 +32,8 @@ export function NssfField({
           onChange={(e) => setM(e.target.value)}
           className="input w-36"
         >
-          <option value="percent">Percentage %</option>
-          <option value="amount">Fixed amount</option>
+          <option value="percent">{labels.percentage}</option>
+          <option value="amount">{labels.fixedAmount}</option>
         </select>
         <div className="relative flex-1">
           <input
@@ -33,20 +42,18 @@ export function NssfField({
             type="number"
             step="0.01"
             min="0"
-            className="input pr-8"
+            className="input pe-8"
             placeholder={m === "amount" ? "e.g. 25" : "e.g. 3"}
             defaultValue={value}
           />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+          <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
             {m === "amount" ? "" : "%"}
           </span>
         </div>
       </div>
       <p className="mt-1 text-xs text-slate-400">
-        {m === "amount"
-          ? "A fixed money amount deducted per payslip."
-          : "A percentage of each employee's base salary (3 = 3%)."}{" "}
-        Pre-fills the NSSF deduction on new payslips.
+        {m === "amount" ? labels.helpAmount : labels.helpPercent}{" "}
+        {labels.helpTail}
       </p>
     </div>
   );

@@ -1,4 +1,5 @@
 import { createEmployee } from "@/lib/actions";
+import { getT } from "@/lib/i18n.server";
 import { EmployeeForm } from "../employee-form";
 
 export default async function NewEmployeePage({
@@ -7,15 +8,17 @@ export default async function NewEmployeePage({
   params: Promise<{ companyId: string }>;
 }) {
   const { companyId } = await params;
+  const { t } = await getT();
   const action = createEmployee.bind(null, companyId);
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold">New employee</h1>
+      <h1 className="mb-6 text-2xl font-semibold">{t.employee.newEmployee}</h1>
       <EmployeeForm
         action={action}
-        submitLabel="Add employee"
+        submitLabel={t.employee.addEmployee}
         cancelHref={`/companies/${companyId}`}
+        t={t}
       />
     </div>
   );

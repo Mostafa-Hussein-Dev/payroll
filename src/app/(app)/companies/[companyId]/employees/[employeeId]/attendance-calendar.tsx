@@ -18,6 +18,7 @@ export function AttendanceCalendar({
   month, // 1-12
   states,
   returnTo,
+  labels,
 }: {
   companyId: string;
   employeeId: string;
@@ -25,6 +26,7 @@ export function AttendanceCalendar({
   month: number;
   states: Map<number, DayState>;
   returnTo: string;
+  labels: { present: string; unpaid: string; paid: string; clickDay: string };
 }) {
   const set = setAttendance.bind(null, companyId, employeeId);
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -65,17 +67,17 @@ export function AttendanceCalendar({
       <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded border border-slate-200 bg-white" />
-          Present
+          {labels.present}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded bg-red-500" />
-          Absent — unpaid
+          {labels.unpaid}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded bg-amber-400" />
-          Absent — paid
+          {labels.paid}
         </span>
-        <span className="text-slate-400">Click a day to change it.</span>
+        <span className="text-slate-400">{labels.clickDay}</span>
       </div>
     </div>
   );
